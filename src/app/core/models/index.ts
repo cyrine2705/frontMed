@@ -85,6 +85,8 @@ export interface AppointmentResponse {
   id: string;
   doctorId: string;
   patientId: string;
+  startDateTime: string;
+  endDateTime: string;
   dateTime: string;
   reason: string;
   status: AppointmentStatus;
@@ -97,7 +99,9 @@ export interface AppointmentResponse {
 export interface CreateAppointmentRequest {
   doctorId: string;
   patientId: string;
-  dateTime: string;
+  startDateTime?: string;
+  endDateTime?: string;
+  dateTime?: string;
   reason: string;
   recipientEmail?: string;
 }
@@ -105,9 +109,15 @@ export interface CreateAppointmentRequest {
 export interface UpdateAppointmentRequest {
   doctorId?: string;
   patientId?: string;
+  startDateTime?: string;
+  endDateTime?: string;
   dateTime?: string;
   reason?: string;
   recipientEmail?: string;
+}
+
+export interface AppointmentStatusUpdateRequest {
+  status: AppointmentStatus;
 }
 
 // ── Medication ────────────────────────────────────────────────────────────────

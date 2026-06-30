@@ -1,325 +1,479 @@
 import {
-  ChangeDetectionStrategy, Component, inject, OnInit, signal,
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  signal,
 } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { DatePipe } from '@angular/common';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatDividerModule } from '@angular/material/divider';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatTableModule } from '@angular/material/table';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { CalendarOptions, DateSelectArg, DatesSetArg, EventClickArg, EventDropArg, EventInput } from '@fullcalendar/core';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import interactionPlugin from '@fullcalendar/interaction';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import { FullCalendarModule } from '@fullcalendar/angular';
+import { AppointmentResponse, AppointmentStatus, CreateAppointmentRequest, PatientResponse } from '../../../core/models';
 import { AppointmentService } from '../../../core/services/appointment.service';
-import { UserService } from '../../../core/services/user.service';
 import { AuthService } from '../../../core/services/auth.service';
-import { AppointmentResponse, PatientResponse } from '../../../core/models';
-import { toLocalDateTimeString, todayDate } from '../../../core/utils/datetime.util';
+import { UserService } from '../../../core/services/user.service';
+import { fromLocalDateTimeString, toLocalDateTimeString } from '../../../core/utils/datetime.util';
+import {
+  AppointmentDetailsDialogComponent,
+  AppointmentDetailsDialogResult,
+} from './appointment-details-dialog.component';
+import {
+  AppointmentScheduleDialogComponent,
+  AppointmentScheduleDialogResult,
+} from './appointment-schedule-dialog.component';
+
+interface CalendarRange {
+  startDateTime: string;
+  endDateTime: string;
+}
 
 @Component({
   selector: 'app-doctor-appointments',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    ReactiveFormsModule, DatePipe,
-    MatButtonModule, MatCardModule, MatDatepickerModule,
-    MatFormFieldModule, MatIconModule, MatInputModule,
-    MatTableModule, MatTooltipModule,
+    FullCalendarModule,
+    MatButtonModule,
+    MatCardModule,
+    MatDialogModule,
+    MatDividerModule,
+    MatIconModule,
+    MatProgressSpinnerModule,
+    MatSnackBarModule,
+    MatTooltipModule,
   ],
-  template: `
-    <div class="page">
-      <header class="page__header">
-        <div class="page__header-row">
-          <div>
-            <h1>Appointments</h1>
-            <p>Schedule and manage patient appointments</p>
-          </div>
-          <button mat-flat-button color="primary" (click)="showForm.set(!showForm())">
-            <mat-icon>{{ showForm() ? 'close' : 'add' }}</mat-icon>
-            {{ showForm() ? 'Cancel' : 'New appointment' }}
-          </button>
-        </div>
-      </header>
-
-      @if (showForm()) {
-        <mat-card class="form-card">
-          <mat-card-content>
-            <h2 class="form-section-title">New appointment</h2>
-            <form [formGroup]="form" (ngSubmit)="submit()" class="appt-form">
-
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Patient ID</mat-label>
-                <input matInput formControlName="patientId"
-                       placeholder="Enter patient UUID">
-                @if (form.get('patientId')?.invalid && form.get('patientId')?.touched) {
-                  <mat-error>Required</mat-error>
-                }
-              </mat-form-field>
-
-              <div class="appt-form__row">
-                <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                  <mat-label>Date</mat-label>
-                  <input matInput [matDatepicker]="picker"
-                         formControlName="date" [min]="minDate">
-                  <mat-datepicker-toggle matIconSuffix [for]="picker" />
-                  <mat-datepicker #picker />
-                  @if (form.get('date')?.invalid && form.get('date')?.touched) {
-                    <mat-error>Future date required</mat-error>
-                  }
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                  <mat-label>Time</mat-label>
-                  <input matInput type="time" formControlName="time">
-                  @if (form.get('time')?.invalid && form.get('time')?.touched) {
-                    <mat-error>Required</mat-error>
-                  }
-                </mat-form-field>
-              </div>
-
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Reason</mat-label>
-                <input matInput formControlName="reason">
-                @if (form.get('reason')?.invalid && form.get('reason')?.touched) {
-                  <mat-error>Required</mat-error>
-                }
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Notification email (optional)</mat-label>
-                <input matInput type="email" formControlName="recipientEmail">
-              </mat-form-field>
-
-              @if (formError()) {
-                <div class="form-error">{{ formError() }}</div>
-              }
-
-              <div class="appt-form__actions">
-                <button mat-stroked-button type="button" (click)="showForm.set(false)">Cancel</button>
-                <button mat-flat-button color="primary" type="submit" [disabled]="saving()">
-                  {{ saving() ? 'Scheduling…' : 'Schedule' }}
-                </button>
-              </div>
-            </form>
-          </mat-card-content>
-        </mat-card>
-      }
-
-      <mat-card class="table-card">
-        <table mat-table [dataSource]="appointments()">
-          <ng-container matColumnDef="dateTime">
-            <th mat-header-cell *matHeaderCellDef>Date & time</th>
-            <td mat-cell *matCellDef="let a">
-              {{ formatDateTime(a.dateTime) }}
-            </td>
-          </ng-container>
-
-          <ng-container matColumnDef="patient">
-            <th mat-header-cell *matHeaderCellDef>Patient</th>
-            <td mat-cell *matCellDef="let a">
-              {{ a.patient ? a.patient.firstName + ' ' + a.patient.lastName : a.patientId }}
-            </td>
-          </ng-container>
-
-          <ng-container matColumnDef="reason">
-            <th mat-header-cell *matHeaderCellDef>Reason</th>
-            <td mat-cell *matCellDef="let a">{{ a.reason }}</td>
-          </ng-container>
-
-          <ng-container matColumnDef="status">
-            <th mat-header-cell *matHeaderCellDef>Status</th>
-            <td mat-cell *matCellDef="let a">
-              <span class="badge"
-                    [class.badge--blue]="a.status === 'SCHEDULED'"
-                    [class.badge--green]="a.status === 'COMPLETED'"
-                    [class.badge--red]="a.status === 'CANCELED'">
-                {{ a.status }}
-              </span>
-            </td>
-          </ng-container>
-
-          <ng-container matColumnDef="actions">
-            <th mat-header-cell *matHeaderCellDef></th>
-            <td mat-cell *matCellDef="let a">
-              @if (a.status === 'SCHEDULED') {
-                <button mat-icon-button color="primary"
-                        matTooltip="Complete"
-                        (click)="complete(a.id)">
-                  <mat-icon>check_circle</mat-icon>
-                </button>
-                <button mat-icon-button color="warn"
-                        matTooltip="Cancel"
-                        (click)="cancel(a.id)">
-                  <mat-icon>cancel</mat-icon>
-                </button>
-              }
-            </td>
-          </ng-container>
-
-          <tr mat-header-row *matHeaderRowDef="columns"></tr>
-          <tr mat-row *matRowDef="let row; columns: columns;"></tr>
-        </table>
-
-        @if (appointments().length === 0 && !loading()) {
-          <div class="table-empty">No appointments yet.</div>
-        }
-      </mat-card>
-    </div>
-  `,
-  styles: [`
-    .page__header-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-    }
-
-    .form-card {
-      margin-bottom: 16px;
-    }
-
-    .form-section-title {
-      font-size: 15px;
-      font-weight: 600;
-      margin-bottom: 16px;
-      color: var(--color-text-1);
-    }
-
-    .appt-form {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-
-      &__row {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 12px;
-      }
-
-      &__actions {
-        display: flex;
-        gap: 8px;
-        justify-content: flex-end;
-        margin-top: 4px;
-      }
-    }
-
-    .form-error {
-      background: #fee2e2;
-      color: var(--color-danger);
-      border-radius: var(--radius-md);
-      padding: 10px 14px;
-      font-size: 13px;
-    }
-
-    .table-card {
-      overflow: hidden;
-      table { width: 100%; }
-    }
-
-    .table-empty {
-      padding: 32px;
-      text-align: center;
-      color: var(--color-text-3);
-      font-size: 14px;
-    }
-
-    th.mat-mdc-header-cell, td.mat-mdc-cell {
-      padding: 12px 16px !important;
-      font-size: 13px;
-    }
-
-    th.mat-mdc-header-cell {
-      color: var(--color-text-2);
-      font-weight: 600;
-    }
-  `],
+  templateUrl: './doctor-appointments.component.html',
+  styleUrl: './doctor-appointments.component.scss',
 })
-export class DoctorAppointmentsComponent implements OnInit {
-  private readonly fb      = inject(FormBuilder);
-  private readonly apptSvc = inject(AppointmentService);
-  private readonly auth    = inject(AuthService);
+export class DoctorAppointmentsComponent {
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly dialog = inject(MatDialog);
+  private readonly snackBar = inject(MatSnackBar);
+  private readonly appointmentService = inject(AppointmentService);
+  private readonly authService = inject(AuthService);
+  private readonly userService = inject(UserService);
 
-  readonly columns      = ['dateTime', 'patient', 'reason', 'status', 'actions'];
   readonly appointments = signal<AppointmentResponse[]>([]);
-  readonly showForm     = signal(false);
-  readonly loading      = signal(false);
-  readonly saving       = signal(false);
-  readonly formError    = signal('');
-  readonly minDate      = todayDate();
+  readonly patients = signal<PatientResponse[]>([]);
+  readonly loadingAppointments = signal(false);
+  readonly loadingPatients = signal(false);
+  readonly pageError = signal('');
+  readonly currentRange = signal<CalendarRange | null>(null);
 
-  readonly form = this.fb.nonNullable.group({
-    patientId:      ['', Validators.required],
-    date:           [null as Date | null, Validators.required],
-    time:           ['08:00', Validators.required],
-    reason:         ['', Validators.required],
-    recipientEmail: [''],
+  readonly doctorId = computed(() => this.authService.currentUser()?.id ?? '');
+  readonly patientDirectory = computed(() => {
+    const directory = new Map<string, PatientResponse>();
+    for (const patient of this.patients()) {
+      directory.set(patient.id, patient);
+    }
+    return directory;
   });
-
-  ngOnInit(): void {
-    this.loadAppointments();
-  }
-
-  private loadAppointments(): void {
-    this.loading.set(true);
-    const doctorId = this.auth.currentUser()!.id;
-    this.apptSvc.getByDoctor(doctorId).subscribe({
-      next: (list) => {
-        this.appointments.set(list.sort((a, b) =>
-          new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime()
-        ));
-        this.loading.set(false);
+  readonly visibleAppointments = computed(() =>
+    [...this.appointments()].sort(
+      (left, right) =>
+        fromLocalDateTimeString(left.startDateTime).getTime() -
+        fromLocalDateTimeString(right.startDateTime).getTime(),
+    ),
+  );
+  readonly upcomingAppointments = computed(() =>
+    this.visibleAppointments().filter((appointment) => appointment.status === 'SCHEDULED').slice(0, 6),
+  );
+  readonly scheduledCount = computed(
+    () => this.appointments().filter((appointment) => appointment.status === 'SCHEDULED').length,
+  );
+  readonly completedCount = computed(
+    () => this.appointments().filter((appointment) => appointment.status === 'COMPLETED').length,
+  );
+  readonly canceledCount = computed(
+    () => this.appointments().filter((appointment) => appointment.status === 'CANCELED').length,
+  );
+  readonly calendarEvents = computed<EventInput[]>(() =>
+    this.appointments().map((appointment) => ({
+      id: appointment.id,
+      title: this.buildPatientLabel(appointment.patientId),
+      start: appointment.startDateTime,
+      end: appointment.endDateTime,
+      classNames: [
+        'appointment-event',
+        `appointment-event--${appointment.status.toLowerCase()}`,
+      ],
+      extendedProps: {
+        appointmentId: appointment.id,
+        patientId: appointment.patientId,
+        reason: appointment.reason,
+        status: appointment.status,
       },
-      error: () => this.loading.set(false),
-    });
+    })),
+  );
+
+  private readonly baseCalendarOptions: CalendarOptions = {
+    plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
+    initialView: 'timeGridWeek',
+    headerToolbar: {
+      left: 'prev,next today',
+      center: 'title',
+      right: 'dayGridMonth,timeGridWeek',
+    },
+    buttonText: {
+      today: 'Today',
+      month: 'Month',
+      week: 'Week',
+    },
+    height: 'auto',
+    contentHeight: 760,
+    weekends: true,
+    nowIndicator: true,
+    selectable: true,
+    editable: true,
+    eventStartEditable: true,
+    allDaySlot: false,
+    selectMirror: true,
+    dayMaxEvents: true,
+    slotMinTime: '07:00:00',
+    slotMaxTime: '20:00:00',
+    slotDuration: '00:30:00',
+    eventTimeFormat: {
+      hour: '2-digit',
+      minute: '2-digit',
+      meridiem: false,
+      hour12: false,
+    },
+    datesSet: (arg) => this.handleDatesSet(arg),
+    select: (arg) => this.openCreateDialog(arg),
+    eventClick: (arg) => this.openDetailsDialog(arg),
+    eventDrop: (arg) => this.handleEventDrop(arg),
+  };
+
+  readonly calendarOptions = computed<CalendarOptions>(() => ({
+    ...this.baseCalendarOptions,
+    events: this.calendarEvents(),
+  }));
+
+  constructor() {
+    this.loadPatients();
   }
 
-  submit(): void {
-    if (this.form.invalid) { this.form.markAllAsTouched(); return; }
-    this.saving.set(true);
-    this.formError.set('');
+  refreshRange(): void {
+    const currentRange = this.currentRange();
+    if (!currentRange || !this.doctorId()) {
+      return;
+    }
 
-    const raw = this.form.getRawValue();
-    const dateTime = toLocalDateTimeString(raw.date!, raw.time);
+    this.loadAppointmentsForRange(currentRange);
+  }
 
-    this.apptSvc.create({
-      doctorId:       this.auth.currentUser()!.id,
-      patientId:      raw.patientId,
-      dateTime,
-      reason:         raw.reason,
-      recipientEmail: raw.recipientEmail || undefined,
-    }).subscribe({
-      next: (a) => {
-        this.appointments.update(list => [a, ...list]);
-        this.form.reset({ time: '08:00' });
-        this.showForm.set(false);
-        this.saving.set(false);
+  openManualCreateDialog(): void {
+    this.openCreateDialog();
+  }
+
+  openAppointmentDetails(appointment: AppointmentResponse): void {
+    this.openDetailsDialog(appointment);
+  }
+
+  buildPatientLabel(patientId: string): string {
+    const patient = this.patientDirectory().get(patientId);
+    if (!patient) {
+      return patientId;
+    }
+
+    return `${patient.firstName} ${patient.lastName}`;
+  }
+
+  formatAppointmentRange(appointment: AppointmentResponse): string {
+    const startDate = fromLocalDateTimeString(appointment.startDateTime);
+    const endDate = fromLocalDateTimeString(appointment.endDateTime);
+
+    const datePart = startDate.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+    const startTime = startDate.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    const endTime = endDate.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+
+    return `${datePart} - ${startTime} to ${endTime}`;
+  }
+
+  trackAppointment(index: number, appointment: AppointmentResponse): string {
+    return appointment.id;
+  }
+
+  private handleDatesSet(arg: DatesSetArg): void {
+    const range = {
+      startDateTime: toLocalDateTimeString(arg.start),
+      endDateTime: toLocalDateTimeString(arg.end),
+    };
+
+    this.currentRange.set(range);
+    this.loadAppointmentsForRange(range);
+  }
+
+  private loadPatients(): void {
+    this.loadingPatients.set(true);
+
+    this.userService.getPatients()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (patients) => {
+          this.patients.set(patients.filter((patient) => patient.isActive));
+          this.loadingPatients.set(false);
+        },
+        error: () => {
+          this.loadingPatients.set(false);
+          this.snackBar.open(
+            'Patient directory could not be loaded. You can still enter a patient ID manually.',
+            'Dismiss',
+            { duration: 5000 },
+          );
+        },
+      });
+  }
+
+  private loadAppointmentsForRange(range: CalendarRange): void {
+    const doctorId = this.doctorId();
+    if (!doctorId) {
+      return;
+    }
+
+    this.loadingAppointments.set(true);
+    this.pageError.set('');
+
+    this.appointmentService.getByDoctorRange(doctorId, range.startDateTime, range.endDateTime)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (appointments) => {
+          this.appointments.set(appointments);
+          this.loadingAppointments.set(false);
+        },
+        error: (error) => {
+          this.loadingAppointments.set(false);
+          this.pageError.set(error.error?.message ?? 'Unable to load the calendar for this range.');
+        },
+      });
+  }
+
+  private openCreateDialog(selection?: DateSelectArg): void {
+    const initialRange = this.resolveDialogRange(selection);
+    selection?.view.calendar.unselect();
+
+    const dialogRef = this.dialog.open(AppointmentScheduleDialogComponent, {
+      width: '640px',
+      maxWidth: '96vw',
+      data: {
+        patients: this.patients(),
+        loadingPatients: this.loadingPatients(),
+        initialStartDateTime: initialRange.startDateTime,
+        initialEndDateTime: initialRange.endDateTime,
       },
-      error: (err) => {
-        this.formError.set(err.error?.message ?? 'Failed to schedule appointment.');
-        this.saving.set(false);
+    });
+
+    dialogRef.afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((result?: AppointmentScheduleDialogResult) => {
+        if (!result) {
+          return;
+        }
+
+        this.createAppointment(result);
+      });
+  }
+
+  private createAppointment(result: AppointmentScheduleDialogResult): void {
+    const doctorId = this.doctorId();
+    if (!doctorId) {
+      return;
+    }
+
+    const payload: CreateAppointmentRequest = {
+      doctorId,
+      patientId: result.patientId,
+      startDateTime: result.startDateTime,
+      endDateTime: result.endDateTime,
+      reason: result.reason,
+      recipientEmail: result.recipientEmail,
+    };
+
+    this.appointmentService.create(payload)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (appointment) => {
+          this.mergeAppointment(appointment);
+          this.snackBar.open('Appointment scheduled successfully.', 'Dismiss', { duration: 3000 });
+        },
+        error: (error) => {
+          this.snackBar.open(
+            error.error?.message ?? 'Unable to schedule this appointment.',
+            'Dismiss',
+            { duration: 5000 },
+          );
+        },
+      });
+  }
+
+  private openDetailsDialog(arg: EventClickArg | AppointmentResponse): void {
+    const appointment = 'event' in arg
+      ? this.appointments().find((item) => item.id === arg.event.id)
+      : arg;
+    if (!appointment) {
+      return;
+    }
+
+    const dialogRef = this.dialog.open(AppointmentDetailsDialogComponent, {
+      width: '520px',
+      maxWidth: '96vw',
+      data: {
+        appointment,
+        patientLabel: this.buildPatientLabel(appointment.patientId),
       },
     });
+
+    dialogRef.afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((result?: AppointmentDetailsDialogResult) => {
+        if (!result) {
+          return;
+        }
+
+        this.applyStatusChange(appointment, result.status);
+      });
   }
 
-  complete(id: string): void {
-    this.apptSvc.complete(id).subscribe({
-      next: (updated) =>
-        this.appointments.update(list => list.map(a => a.id === id ? updated : a)),
+  private applyStatusChange(appointment: AppointmentResponse, status: AppointmentStatus): void {
+    this.appointmentService.updateStatus(appointment.id, status)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (updatedAppointment) => {
+          this.mergeAppointment(updatedAppointment);
+          this.snackBar.open(`Appointment marked as ${status.toLowerCase()}.`, 'Dismiss', {
+            duration: 3000,
+          });
+        },
+        error: (error) => {
+          this.snackBar.open(
+            error.error?.message ?? 'Unable to update this appointment.',
+            'Dismiss',
+            { duration: 5000 },
+          );
+        },
+      });
+  }
+
+  private handleEventDrop(arg: EventDropArg): void {
+    const appointment = this.appointments().find((item) => item.id === arg.event.id);
+    if (!appointment) {
+      arg.revert();
+      return;
+    }
+
+    const updatedPayload = {
+      doctorId: appointment.doctorId,
+      patientId: appointment.patientId,
+      startDateTime: this.toCalendarDateTime(arg.event.start),
+      endDateTime: this.toCalendarDateTime(arg.event.end ?? this.addMinutes(arg.event.start, 30)),
+      reason: appointment.reason,
+      recipientEmail: appointment.recipientEmail,
+    };
+
+    this.appointmentService.update(appointment.id, updatedPayload)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (updatedAppointment) => {
+          this.mergeAppointment(updatedAppointment);
+          this.snackBar.open('Appointment time updated.', 'Dismiss', { duration: 3000 });
+        },
+        error: (error) => {
+          arg.revert();
+          this.snackBar.open(
+            error.error?.message ?? 'Unable to move this appointment.',
+            'Dismiss',
+            { duration: 5000 },
+          );
+        },
+      });
+  }
+
+  private mergeAppointment(updatedAppointment: AppointmentResponse): void {
+    this.appointments.update((appointments) => {
+      const existingIndex = appointments.findIndex((appointment) => appointment.id === updatedAppointment.id);
+      if (existingIndex === -1) {
+        return [...appointments, updatedAppointment];
+      }
+
+      const nextAppointments = [...appointments];
+      nextAppointments[existingIndex] = updatedAppointment;
+      return nextAppointments;
     });
   }
 
-  cancel(id: string): void {
-    this.apptSvc.cancel(id).subscribe({
-      next: (updated) =>
-        this.appointments.update(list => list.map(a => a.id === id ? updated : a)),
-    });
+  private resolveDialogRange(selection?: DateSelectArg): CalendarRange {
+    if (!selection) {
+      const startDate = this.roundToNextHalfHour(new Date());
+      return {
+        startDateTime: toLocalDateTimeString(startDate),
+        endDateTime: toLocalDateTimeString(this.addMinutes(startDate, 30)),
+      };
+    }
+
+    if (selection.allDay) {
+      const startDate = new Date(selection.start);
+      startDate.setHours(9, 0, 0, 0);
+      return {
+        startDateTime: toLocalDateTimeString(startDate),
+        endDateTime: toLocalDateTimeString(this.addMinutes(startDate, 30)),
+      };
+    }
+
+    return {
+      startDateTime: toLocalDateTimeString(selection.start),
+      endDateTime: toLocalDateTimeString(selection.end ?? this.addMinutes(selection.start, 30)),
+    };
   }
 
-  formatDateTime(s: string): string {
-    const d = new Date(s);
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
-           ' ' +
-           d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+  private addMinutes(date: Date | null, minutes: number): Date {
+    const nextDate = new Date(date ?? new Date());
+    nextDate.setMinutes(nextDate.getMinutes() + minutes);
+    return nextDate;
+  }
+
+  private roundToNextHalfHour(date: Date): Date {
+    const roundedDate = new Date(date);
+    roundedDate.setSeconds(0, 0);
+
+    const minutes = roundedDate.getMinutes();
+    if (minutes === 0 || minutes === 30) {
+      return roundedDate;
+    }
+
+    if (minutes < 30) {
+      roundedDate.setMinutes(30);
+      return roundedDate;
+    }
+
+    roundedDate.setHours(roundedDate.getHours() + 1, 0, 0, 0);
+    return roundedDate;
+  }
+
+  private toCalendarDateTime(date: Date | null): string {
+    return toLocalDateTimeString(date ?? new Date());
   }
 }

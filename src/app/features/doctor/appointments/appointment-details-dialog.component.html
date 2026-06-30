@@ -1,0 +1,56 @@
+<h2 mat-dialog-title>Appointment details</h2>
+
+<mat-dialog-content class="details-content">
+  <div class="status-row">
+    <span
+      class="badge"
+      [class.badge--blue]="appointment.status === 'SCHEDULED'"
+      [class.badge--green]="appointment.status === 'COMPLETED'"
+      [class.badge--red]="appointment.status === 'CANCELED'"
+    >
+      {{ appointment.status }}
+    </span>
+  </div>
+
+  <div class="details-grid">
+    <div class="details-item">
+      <span class="details-item__label">Patient</span>
+      <span class="details-item__value">{{ data.patientLabel }}</span>
+    </div>
+
+    <div class="details-item">
+      <span class="details-item__label">Start</span>
+      <span class="details-item__value">{{ formatDateTime(appointment.startDateTime) }}</span>
+    </div>
+
+    <div class="details-item">
+      <span class="details-item__label">End</span>
+      <span class="details-item__value">{{ formatDateTime(appointment.endDateTime) }}</span>
+    </div>
+
+    <div class="details-item">
+      <span class="details-item__label">Patient ID</span>
+      <span class="details-item__value details-item__value--mono">{{ appointment.patientId }}</span>
+    </div>
+  </div>
+
+  <div class="details-item details-item--block">
+    <span class="details-item__label">Reason</span>
+    <p class="details-item__note">{{ appointment.reason }}</p>
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-stroked-button type="button" (click)="close()">Close</button>
+
+  @if (appointment.status === 'SCHEDULED') {
+    <button mat-stroked-button color="warn" type="button" (click)="setStatus('CANCELED')">
+      <mat-icon>cancel</mat-icon>
+      Cancel
+    </button>
+    <button mat-flat-button color="primary" type="button" (click)="setStatus('COMPLETED')">
+      <mat-icon>check_circle</mat-icon>
+      Complete
+    </button>
+  }
+</mat-dialog-actions>

@@ -1,0 +1,96 @@
+<h2 mat-dialog-title>Schedule appointment</h2>
+
+<mat-dialog-content class="dialog-content">
+  <p class="dialog-intro">
+    Create a consultation slot with a clear start and end time.
+  </p>
+
+  <form class="dialog-form" [formGroup]="form">
+    @if (hasPatientDirectory()) {
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Patient</mat-label>
+        <mat-select formControlName="patientId">
+          @for (patient of patientOptions(); track patient.id) {
+            <mat-option [value]="patient.id">
+              <div class="patient-option">
+                <span class="patient-option__name">{{ patient.label }}</span>
+                <span class="patient-option__helper">{{ patient.helper }}</span>
+              </div>
+            </mat-option>
+          }
+        </mat-select>
+        @if (form.controls.patientId.invalid && form.controls.patientId.touched) {
+          <mat-error>Please select a patient.</mat-error>
+        }
+      </mat-form-field>
+    } @else {
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Patient ID</mat-label>
+        <input matInput formControlName="manualPatientId" placeholder="Enter patient identifier" />
+        <mat-icon matSuffix>person</mat-icon>
+        @if (form.controls.manualPatientId.invalid && form.controls.manualPatientId.touched) {
+          <mat-error>Please enter a patient identifier.</mat-error>
+        }
+      </mat-form-field>
+    }
+
+    <div class="dialog-grid">
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Start date</mat-label>
+        <input matInput [matDatepicker]="startPicker" formControlName="startDate" />
+        <mat-datepicker-toggle matIconSuffix [for]="startPicker"></mat-datepicker-toggle>
+        <mat-datepicker #startPicker></mat-datepicker>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Start time</mat-label>
+        <input matInput type="time" formControlName="startTime" />
+      </mat-form-field>
+    </div>
+
+    <div class="dialog-grid">
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>End date</mat-label>
+        <input matInput [matDatepicker]="endPicker" formControlName="endDate" />
+        <mat-datepicker-toggle matIconSuffix [for]="endPicker"></mat-datepicker-toggle>
+        <mat-datepicker #endPicker></mat-datepicker>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>End time</mat-label>
+        <input matInput type="time" formControlName="endTime" />
+        @if (form.controls.endTime.hasError('invalidRange')) {
+          <mat-error>End time must be after the start time.</mat-error>
+        }
+      </mat-form-field>
+    </div>
+
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Reason</mat-label>
+      <textarea matInput rows="3" formControlName="reason" placeholder="Consultation reason"></textarea>
+      @if (form.controls.reason.invalid && form.controls.reason.touched) {
+        <mat-error>Please provide a short consultation reason.</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Notification email</mat-label>
+      <input matInput type="email" formControlName="recipientEmail" placeholder="patient@example.com" />
+      @if (form.controls.recipientEmail.invalid && form.controls.recipientEmail.touched) {
+        <mat-error>Please enter a valid email address.</mat-error>
+      }
+    </mat-form-field>
+
+    @if (data.loadingPatients) {
+      <div class="helper-banner">
+        <mat-spinner diameter="18"></mat-spinner>
+        <span>Loading patient directory...</span>
+      </div>
+    }
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-stroked-button type="button" (click)="close()">Cancel</button>
+  <button mat-flat-button color="primary" type="button" (click)="save()">Save appointment</button>
+</mat-dialog-actions>

@@ -1,0 +1,137 @@
+<div class="page appointments-page">
+  <header class="page__header appointments-page__header">
+    <div>
+      <h1>Appointments</h1>
+      <p>Manage your consultation schedule with a calendar built for quick booking and follow-up.</p>
+    </div>
+
+    <div class="appointments-page__actions">
+      <button
+        mat-stroked-button
+        type="button"
+        class="action-button"
+        [disabled]="loadingAppointments()"
+        (click)="refreshRange()"
+      >
+        <mat-icon>refresh</mat-icon>
+        Refresh
+      </button>
+
+      <button
+        mat-flat-button
+        color="primary"
+        type="button"
+        class="action-button"
+        (click)="openManualCreateDialog()"
+      >
+        <mat-icon>add</mat-icon>
+        New appointment
+      </button>
+    </div>
+  </header>
+
+  <section class="appointments-layout">
+    <mat-card class="calendar-card">
+      <div class="calendar-card__header">
+        <div>
+          <h2>Doctor calendar</h2>
+          <p>Select a slot to schedule an appointment, or click an event to update its status.</p>
+        </div>
+
+        <div class="calendar-legend" aria-label="Appointment legend">
+          <span class="calendar-legend__item">
+            <span class="calendar-legend__dot calendar-legend__dot--scheduled"></span>
+            Scheduled
+          </span>
+          <span class="calendar-legend__item">
+            <span class="calendar-legend__dot calendar-legend__dot--completed"></span>
+            Completed
+          </span>
+          <span class="calendar-legend__item">
+            <span class="calendar-legend__dot calendar-legend__dot--canceled"></span>
+            Canceled
+          </span>
+        </div>
+      </div>
+
+      @if (pageError()) {
+        <div class="state-banner state-banner--error">
+          <mat-icon>error</mat-icon>
+          <span>{{ pageError() }}</span>
+        </div>
+      }
+
+      <div class="calendar-shell">
+        @if (loadingAppointments()) {
+          <div class="calendar-shell__loading">
+            <mat-spinner diameter="38"></mat-spinner>
+          </div>
+        }
+
+        <full-calendar [options]="calendarOptions()"></full-calendar>
+      </div>
+    </mat-card>
+
+    <div class="appointments-sidebar">
+      <mat-card class="summary-card">
+        <div class="summary-card__grid">
+          <div class="summary-stat">
+            <span class="summary-stat__value">{{ scheduledCount() }}</span>
+            <span class="summary-stat__label">Scheduled</span>
+          </div>
+          <div class="summary-stat">
+            <span class="summary-stat__value">{{ completedCount() }}</span>
+            <span class="summary-stat__label">Completed</span>
+          </div>
+          <div class="summary-stat">
+            <span class="summary-stat__value">{{ canceledCount() }}</span>
+            <span class="summary-stat__label">Canceled</span>
+          </div>
+        </div>
+      </mat-card>
+
+      <mat-card class="upcoming-card">
+        <div class="upcoming-card__header">
+          <div>
+            <h2>Upcoming in view</h2>
+            <p>The next scheduled consultations in the current calendar range.</p>
+          </div>
+
+          @if (loadingPatients()) {
+            <mat-spinner diameter="20"></mat-spinner>
+          }
+        </div>
+
+        <mat-divider></mat-divider>
+
+        @if (upcomingAppointments().length === 0) {
+          <div class="empty-state">
+            <mat-icon>event_busy</mat-icon>
+            <p>No scheduled appointments in this view.</p>
+          </div>
+        } @else {
+          <div class="upcoming-list">
+            @for (appointment of upcomingAppointments(); track trackAppointment($index, appointment)) {
+              <button
+                type="button"
+                class="upcoming-item"
+                (click)="openAppointmentDetails(appointment)"
+                [matTooltip]="appointment.reason"
+              >
+                <div class="upcoming-item__time">
+                  {{ formatAppointmentRange(appointment) }}
+                </div>
+                <div class="upcoming-item__patient">
+                  {{ buildPatientLabel(appointment.patientId) }}
+                </div>
+                <div class="upcoming-item__reason">
+                  {{ appointment.reason }}
+                </div>
+              </button>
+            }
+          </div>
+        }
+      </mat-card>
+    </div>
+  </section>
+</div>
