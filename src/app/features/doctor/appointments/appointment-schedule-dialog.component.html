@@ -25,8 +25,8 @@
       </mat-form-field>
     } @else {
       <mat-form-field appearance="outline" subscriptSizing="dynamic">
-        <mat-label>Patient ID</mat-label>
-        <input matInput formControlName="manualPatientId" placeholder="Enter patient identifier" />
+        <mat-label>Patient reference</mat-label>
+        <input matInput formControlName="manualPatientId" placeholder="Enter patient functional ID" />
         <mat-icon matSuffix>person</mat-icon>
         @if (form.controls.manualPatientId.invalid && form.controls.manualPatientId.touched) {
           <mat-error>Please enter a patient identifier.</mat-error>

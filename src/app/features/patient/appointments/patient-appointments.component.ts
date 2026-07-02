@@ -1,9 +1,10 @@
-import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { AppointmentService } from '../../../core/services/appointment.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { ProfileService } from '../../../core/services/profile.service';
 import { AppointmentResponse } from '../../../core/models';
 import { fromLocalDateTimeString } from '../../../core/utils/datetime.util';
 
@@ -15,8 +16,18 @@ import { fromLocalDateTimeString } from '../../../core/utils/datetime.util';
   template: `
     <div class="page">
       <header class="page__header">
-        <h1>Appointments</h1>
-        <p>Your scheduled and past appointments</p>
+        <div>
+          <h1>Appointments</h1>
+          <p>Your scheduled and past appointments</p>
+        </div>
+
+        @if (patientReference()) {
+          <div class="identity-chip">
+            <mat-icon>badge</mat-icon>
+            <span>Patient ID</span>
+            <strong>{{ patientReference() }}</strong>
+          </div>
+        }
       </header>
 
       <mat-card class="table-card">
@@ -66,6 +77,38 @@ import { fromLocalDateTimeString } from '../../../core/utils/datetime.util';
       table { width: 100%; }
     }
 
+    .page__header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .identity-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      padding: 10px 14px;
+      background: rgba(37, 99, 235, 0.08);
+      border: 1px solid rgba(37, 99, 235, 0.16);
+      color: var(--color-primary);
+      font-size: 12px;
+      white-space: nowrap;
+
+      mat-icon {
+        width: 16px;
+        height: 16px;
+        font-size: 16px;
+      }
+
+      strong {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+      }
+    }
+
     .table-empty {
       padding: 32px;
       text-align: center;
@@ -87,20 +130,35 @@ import { fromLocalDateTimeString } from '../../../core/utils/datetime.util';
 export class PatientAppointmentsComponent implements OnInit {
   private readonly apptSvc = inject(AppointmentService);
   private readonly auth    = inject(AuthService);
+  private readonly profileService = inject(ProfileService);
 
   readonly columns      = ['dateTime', 'doctor', 'reason', 'status'];
   readonly appointments = signal<AppointmentResponse[]>([]);
   readonly loading      = signal(false);
+  readonly patientProfile = this.profileService.patientProfile;
+  readonly patientReference = computed(
+    () => this.patientProfile()?.functionalId ?? this.patientProfile()?.id ?? this.auth.currentUser()?.id ?? ''
+  );
 
   ngOnInit(): void {
+    const currentUser = this.auth.currentUser();
+    if (!currentUser) {
+      return;
+    }
+
     this.loading.set(true);
-    const patientId = this.auth.currentUser()!.id;
-    this.apptSvc.getByPatient(patientId).subscribe({
-      next: (list) => {
-        this.appointments.set(
-          list.sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())
-        );
-        this.loading.set(false);
+    this.profileService.getPatientProfile(currentUser.id).subscribe({
+      next: (patient) => {
+        const patientReference = patient.functionalId ?? patient.id;
+        this.apptSvc.getByPatient(patientReference).subscribe({
+          next: (list) => {
+            this.appointments.set(
+              list.sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())
+            );
+            this.loading.set(false);
+          },
+          error: () => this.loading.set(false),
+        });
       },
       error: () => this.loading.set(false),
     });

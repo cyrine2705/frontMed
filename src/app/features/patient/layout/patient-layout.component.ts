@@ -1,5 +1,7 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, OnInit } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { AuthService } from '../../../core/services/auth.service';
+import { ProfileService } from '../../../core/services/profile.service';
 import { SidebarComponent, NavItem } from '../../../shared/components/sidebar/sidebar.component';
 
 const NAV_ITEMS: NavItem[] = [
@@ -36,6 +38,20 @@ const NAV_ITEMS: NavItem[] = [
     }
   `],
 })
-export class PatientLayoutComponent {
+export class PatientLayoutComponent implements OnInit {
+  private readonly authService = inject(AuthService);
+  private readonly profileService = inject(ProfileService);
+
   readonly navItems = NAV_ITEMS;
+
+  ngOnInit(): void {
+    const currentUser = this.authService.currentUser();
+    if (!currentUser) {
+      return;
+    }
+
+    this.profileService.getPatientProfile(currentUser.id).subscribe({
+      error: () => undefined,
+    });
+  }
 }

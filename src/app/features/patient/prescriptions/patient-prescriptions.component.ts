@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -7,6 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { PrescriptionService } from '../../../core/services/prescription.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { PdfGeneratorService } from '../../../core/services/pdf-generator.service';
+import { ProfileService } from '../../../core/services/profile.service';
 import { PrescriptionResponse } from '../../../core/models';
 
 @Component({
@@ -17,8 +18,18 @@ import { PrescriptionResponse } from '../../../core/models';
   template: `
     <div class="page">
       <header class="page__header">
-        <h1>Prescriptions</h1>
-        <p>Your prescription history</p>
+        <div>
+          <h1>Prescriptions</h1>
+          <p>Your prescription history</p>
+        </div>
+
+        @if (patientReference()) {
+          <div class="identity-chip">
+            <mat-icon>badge</mat-icon>
+            <span>Patient ID</span>
+            <strong>{{ patientReference() }}</strong>
+          </div>
+        }
       </header>
 
       @if (prescriptions().length === 0 && !loading()) {
@@ -79,6 +90,38 @@ import { PrescriptionResponse } from '../../../core/models';
       color: var(--color-text-3);
       padding: 64px;
       font-size: 14px;
+    }
+
+    .page__header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .identity-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      padding: 10px 14px;
+      background: rgba(37, 99, 235, 0.08);
+      border: 1px solid rgba(37, 99, 235, 0.16);
+      color: var(--color-primary);
+      font-size: 12px;
+      white-space: nowrap;
+
+      mat-icon {
+        width: 16px;
+        height: 16px;
+        font-size: 16px;
+      }
+
+      strong {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+      }
     }
 
     .rx-list {
@@ -178,20 +221,35 @@ export class PatientPrescriptionsComponent implements OnInit {
   private readonly rxSvc = inject(PrescriptionService);
   private readonly auth  = inject(AuthService);
   private readonly pdfGenerator = inject(PdfGeneratorService);
+  private readonly profileService = inject(ProfileService);
 
   readonly prescriptions = signal<PrescriptionResponse[]>([]);
   readonly loading       = signal(false);
   readonly downloadingPrescriptionId = signal<string | null>(null);
+  readonly patientProfile = this.profileService.patientProfile;
+  readonly patientReference = computed(
+    () => this.patientProfile()?.functionalId ?? this.patientProfile()?.id ?? this.auth.currentUser()?.id ?? ''
+  );
 
   ngOnInit(): void {
+    const currentUser = this.auth.currentUser();
+    if (!currentUser) {
+      return;
+    }
+
     this.loading.set(true);
-    const patientId = this.auth.currentUser()!.id;
-    this.rxSvc.getByPatient(patientId).subscribe({
-      next: (list) => {
-        this.prescriptions.set(
-          list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        );
-        this.loading.set(false);
+    this.profileService.getPatientProfile(currentUser.id).subscribe({
+      next: (patient) => {
+        const patientReference = patient.functionalId ?? patient.id;
+        this.rxSvc.getByPatient(patientReference).subscribe({
+          next: (list) => {
+            this.prescriptions.set(
+              list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            );
+            this.loading.set(false);
+          },
+          error: () => this.loading.set(false),
+        });
       },
       error: () => this.loading.set(false),
     });

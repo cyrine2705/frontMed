@@ -32,6 +32,7 @@ interface RawPrescriptionDoctorMetadata {
 
 interface RawPrescriptionPatientMetadata {
   id: string;
+  functionalId?: string;
   firstName: string;
   lastName: string;
   email: string;

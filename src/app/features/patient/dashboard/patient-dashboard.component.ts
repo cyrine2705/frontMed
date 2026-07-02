@@ -7,6 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { AppointmentService } from '../../../core/services/appointment.service';
 import { PrescriptionService } from '../../../core/services/prescription.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { ProfileService } from '../../../core/services/profile.service';
 import { AppointmentResponse, PrescriptionResponse } from '../../../core/models';
 import { fromLocalDateTimeString } from '../../../core/utils/datetime.util';
 
@@ -18,8 +19,18 @@ import { fromLocalDateTimeString } from '../../../core/utils/datetime.util';
   template: `
     <div class="page">
       <header class="page__header">
-        <h1>Dashboard</h1>
-        <p>Welcome, {{ auth.currentUser()?.firstName }}</p>
+        <div>
+          <h1>Dashboard</h1>
+          <p>Welcome, {{ auth.currentUser()?.firstName }}</p>
+        </div>
+
+        @if (patientReference()) {
+          <div class="identity-chip">
+            <mat-icon>badge</mat-icon>
+            <span>Patient ID</span>
+            <strong>{{ patientReference() }}</strong>
+          </div>
+        }
       </header>
 
       <div class="dash-grid">
@@ -80,6 +91,38 @@ import { fromLocalDateTimeString } from '../../../core/utils/datetime.util';
       gap: 16px;
 
       @media (max-width: 900px) { grid-template-columns: 1fr; }
+    }
+
+    .page__header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .identity-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      padding: 10px 14px;
+      background: rgba(37, 99, 235, 0.08);
+      border: 1px solid rgba(37, 99, 235, 0.16);
+      color: var(--color-primary);
+      font-size: 12px;
+      white-space: nowrap;
+
+      mat-icon {
+        width: 16px;
+        height: 16px;
+        font-size: 16px;
+      }
+
+      strong {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+      }
     }
 
     mat-card-header {
@@ -191,9 +234,14 @@ export class PatientDashboardComponent implements OnInit {
   protected readonly auth  = inject(AuthService);
   private readonly apptSvc = inject(AppointmentService);
   private readonly rxSvc   = inject(PrescriptionService);
+  private readonly profileService = inject(ProfileService);
 
   private readonly allAppts = signal<AppointmentResponse[]>([]);
   private readonly allRx    = signal<PrescriptionResponse[]>([]);
+  readonly patientProfile = this.profileService.patientProfile;
+  readonly patientReference = computed(
+    () => this.patientProfile()?.functionalId ?? this.patientProfile()?.id ?? this.auth.currentUser()?.id ?? ''
+  );
 
   readonly upcoming = computed(() =>
     this.allAppts()
@@ -205,9 +253,18 @@ export class PatientDashboardComponent implements OnInit {
   readonly recentRx = computed(() => this.allRx().slice(0, 5));
 
   ngOnInit(): void {
-    const patientId = this.auth.currentUser()!.id;
-    this.apptSvc.getByPatient(patientId).subscribe(list => this.allAppts.set(list));
-    this.rxSvc.getByPatient(patientId).subscribe(list => this.allRx.set(list));
+    const currentUser = this.auth.currentUser();
+    if (!currentUser) {
+      return;
+    }
+
+    this.profileService.getPatientProfile(currentUser.id).subscribe({
+      next: (patient) => {
+        const patientReference = patient.functionalId ?? patient.id;
+        this.apptSvc.getByPatient(patientReference).subscribe((list) => this.allAppts.set(list));
+        this.rxSvc.getByPatient(patientReference).subscribe((list) => this.allRx.set(list));
+      },
+    });
   }
 
   formatTime(dateTime: string): string {

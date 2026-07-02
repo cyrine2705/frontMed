@@ -3,6 +3,7 @@ export type ProfileRole = 'DOCTOR' | 'PATIENT';
 
 export interface UserResponse {
   id: string;
+  functionalId?: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -71,6 +72,7 @@ export interface CreateDoctorRequest {
 
 export interface PatientResponse {
   id: string;
+  functionalId?: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -191,6 +193,7 @@ export interface PrescriptionDoctorMetadata {
 
 export interface PrescriptionPatientMetadata {
   id: string;
+  functionalId?: string;
   firstName: string;
   lastName: string;
   email: string;

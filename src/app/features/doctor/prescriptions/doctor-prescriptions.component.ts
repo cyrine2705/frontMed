@@ -81,8 +81,8 @@ interface LineGroup extends FormGroup {
 
             <form [formGroup]="form" (ngSubmit)="submit()" class="rx-form">
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Patient ID</mat-label>
-                <input matInput formControlName="patientId" placeholder="Enter patient UUID">
+                <mat-label>Patient reference</mat-label>
+                <input matInput formControlName="patientId" placeholder="Enter patient functional ID">
                 @if (form.get('patientId')?.invalid && form.get('patientId')?.touched) {
                   <mat-error>Required</mat-error>
                 }
@@ -199,6 +199,7 @@ interface LineGroup extends FormGroup {
               <div class="rx-card__header">
                 <div>
                   <div class="rx-card__patient">Patient: {{ rx.patient ? rx.patient.firstName + ' ' + rx.patient.lastName : rx.patientId }}</div>
+                  <div class="rx-card__date">Reference: {{ rx.patient?.functionalId ?? rx.patientId }}</div>
                   <div class="rx-card__date">{{ rx.createdAt | date:'MMM d, yyyy' }}</div>
                 </div>
                 <div class="rx-card__actions">

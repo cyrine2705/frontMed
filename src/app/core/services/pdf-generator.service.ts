@@ -117,6 +117,7 @@ export class PdfGeneratorService {
 
     const rightColumn = [
       `Email: ${patient?.email ?? 'Not provided'}`,
+      `Patient ID: ${patient?.functionalId ?? patient?.id ?? 'Not provided'}`,
       `Social security number: ${patient?.socialSecurityNumber ?? 'Not provided'}`,
       `Prescription ID: ${prescriptionId}`,
     ];

@@ -77,6 +77,9 @@ export class DoctorAppointmentsComponent {
     const directory = new Map<string, PatientResponse>();
     for (const patient of this.patients()) {
       directory.set(patient.id, patient);
+      if (patient.functionalId) {
+        directory.set(patient.functionalId, patient);
+      }
     }
     return directory;
   });
