@@ -56,7 +56,9 @@ import { fromLocalDateTimeString } from '../../../core/utils/datetime.util';
                 </div>
                 <div class="appt-row__body">
                   <span class="appt-row__reason">{{ appt.reason }}</span>
-                  <span class="appt-row__patient">Patient ID: {{ appt.patientId }}</span>
+                  <span class="appt-row__patient">
+                    {{ formatPatientName(appt) }} | {{ formatPatientReference(appt) }}
+                  </span>
                 </div>
                 <span class="badge"
                       [class.badge--blue]="appt.status === 'SCHEDULED'"
@@ -83,7 +85,7 @@ import { fromLocalDateTimeString } from '../../../core/utils/datetime.util';
               <div class="rx-row">
                 <mat-icon class="rx-row__icon">medication</mat-icon>
                 <div class="rx-row__body">
-                  <span class="rx-row__patient">Patient ID: {{ rx.patientId }}</span>
+                  <span class="rx-row__patient">{{ formatPrescriptionPatient(rx) }}</span>
                   <span class="rx-row__lines">
                     {{ rx.prescriptionLines.length }} medication(s)
                   </span>
@@ -264,5 +266,25 @@ export class DoctorDashboardComponent implements OnInit {
   formatTime(dateTime: string): string {
     const d = fromLocalDateTimeString(dateTime);
     return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+  }
+
+  formatPatientName(appointment: AppointmentResponse): string {
+    if (appointment.patient) {
+      return `${appointment.patient.firstName} ${appointment.patient.lastName}`;
+    }
+
+    return appointment.patientId;
+  }
+
+  formatPatientReference(appointment: AppointmentResponse): string {
+    return appointment.patient?.functionalId ?? appointment.patientId;
+  }
+
+  formatPrescriptionPatient(prescription: PrescriptionResponse): string {
+    if (prescription.patient) {
+      return `${prescription.patient.firstName} ${prescription.patient.lastName}`;
+    }
+
+    return prescription.patientId;
   }
 }

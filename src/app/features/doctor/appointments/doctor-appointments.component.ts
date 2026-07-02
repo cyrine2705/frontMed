@@ -105,7 +105,7 @@ export class DoctorAppointmentsComponent {
   readonly calendarEvents = computed<EventInput[]>(() =>
     this.appointments().map((appointment) => ({
       id: appointment.id,
-      title: this.buildPatientLabel(appointment.patientId),
+      title: this.buildPatientLabel(appointment),
       start: appointment.startDateTime,
       end: appointment.endDateTime,
       classNames: [
@@ -185,7 +185,17 @@ export class DoctorAppointmentsComponent {
     this.openDetailsDialog(appointment);
   }
 
-  buildPatientLabel(patientId: string): string {
+  buildPatientLabel(appointmentOrPatientId: AppointmentResponse | string): string {
+    if (typeof appointmentOrPatientId !== 'string') {
+      const appointment = appointmentOrPatientId;
+      if (appointment.patient) {
+        return `${appointment.patient.firstName} ${appointment.patient.lastName}`;
+      }
+
+      return this.buildPatientLabel(appointment.patientId);
+    }
+
+    const patientId = appointmentOrPatientId;
     const patient = this.patientDirectory().get(patientId);
     if (!patient) {
       return patientId;
@@ -346,7 +356,7 @@ export class DoctorAppointmentsComponent {
       maxWidth: '96vw',
       data: {
         appointment,
-        patientLabel: this.buildPatientLabel(appointment.patientId),
+        patientLabel: this.buildPatientLabel(appointment),
       },
     });
 

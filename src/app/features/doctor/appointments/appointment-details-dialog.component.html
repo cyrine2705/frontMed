@@ -29,8 +29,10 @@
     </div>
 
     <div class="details-item">
-      <span class="details-item__label">Patient ID</span>
-      <span class="details-item__value details-item__value--mono">{{ appointment.patientId }}</span>
+      <span class="details-item__label">Patient reference</span>
+      <span class="details-item__value details-item__value--mono">
+        {{ appointment.patient?.functionalId ?? appointment.patientId }}
+      </span>
     </div>
   </div>
 

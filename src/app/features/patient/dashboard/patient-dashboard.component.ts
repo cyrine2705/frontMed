@@ -51,8 +51,8 @@ import { fromLocalDateTimeString } from '../../../core/utils/datetime.util';
                   <span class="appt-row__month">{{ appt.dateTime | date:'MMM' }}</span>
                 </div>
                 <div class="appt-row__body">
-                  <span class="appt-row__reason">{{ appt.reason }}</span>
-                  <span class="appt-row__time">{{ formatTime(appt.dateTime) }}</span>
+                  <span class="appt-row__reason">{{ formatDoctorName(appt) }}</span>
+                  <span class="appt-row__time">{{ formatTime(appt.dateTime) }} | {{ appt.reason }}</span>
                 </div>
                 <span class="badge badge--blue">SCHEDULED</span>
               </div>
@@ -74,9 +74,10 @@ import { fromLocalDateTimeString } from '../../../core/utils/datetime.util';
               <div class="rx-row">
                 <mat-icon class="rx-row__icon">medication</mat-icon>
                 <div class="rx-row__body">
-                  <span class="rx-row__count">{{ rx.prescriptionLines.length }} medication(s)</span>
+                  <span class="rx-row__count">{{ formatDoctorNameFromPrescription(rx) }}</span>
                   <span class="rx-row__date">{{ rx.createdAt | date:'MMM d, yyyy' }}</span>
                 </div>
+                <span class="badge badge--gray">{{ rx.prescriptionLines.length }} med(s)</span>
               </div>
             }
           </mat-card-content>
@@ -270,5 +271,21 @@ export class PatientDashboardComponent implements OnInit {
   formatTime(dateTime: string): string {
     const d = fromLocalDateTimeString(dateTime);
     return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+  }
+
+  formatDoctorName(appointment: AppointmentResponse): string {
+    if (appointment.doctor) {
+      return `Dr. ${appointment.doctor.firstName} ${appointment.doctor.lastName}`;
+    }
+
+    return `Dr. ${appointment.doctorId}`;
+  }
+
+  formatDoctorNameFromPrescription(prescription: PrescriptionResponse): string {
+    if (prescription.doctor) {
+      return `Dr. ${prescription.doctor.firstName} ${prescription.doctor.lastName}`;
+    }
+
+    return `Dr. ${prescription.doctorId}`;
   }
 }

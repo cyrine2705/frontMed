@@ -62,7 +62,7 @@ export class PdfGeneratorService {
     document.setFontSize(8.5);
 
     const lines = [
-      doctor?.specialty,
+      doctor?.specialty ? `Specialty: ${doctor.specialty}` : undefined,
       doctor?.medicalLicenseNumber ? `Medical license: ${doctor.medicalLicenseNumber}` : undefined,
       doctor?.clinicAddress,
       doctor?.phoneNumber ? `Phone: ${doctor.phoneNumber}` : undefined,
@@ -110,7 +110,7 @@ export class PdfGeneratorService {
       : 'Not available';
 
     const leftColumn = [
-      `Name: ${patientName}`,
+      `Patient: ${patientName}`,
       `Birth date: ${patient?.birthDate ? this.formatLongDate(patient.birthDate) : 'Not provided'}`,
       `Blood type: ${patient?.bloodType ?? 'Not provided'}`,
     ];

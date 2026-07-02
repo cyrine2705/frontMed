@@ -42,9 +42,10 @@ import { PrescriptionResponse } from '../../../core/models';
             <mat-card-content>
               <div class="rx-card__header">
                 <div>
-                  <div class="rx-card__doctor">
-                    Dr. {{ rx.doctor ? rx.doctor.lastName : rx.doctorId }}
-                  </div>
+                  <div class="rx-card__doctor">{{ formatDoctorName(rx) }}</div>
+                  @if (rx.doctor?.specialty) {
+                    <div class="rx-card__meta">{{ rx.doctor?.specialty }}</div>
+                  }
                   <div class="rx-card__date">Issued {{ rx.createdAt | date:'MMMM d, yyyy' }}</div>
                 </div>
                 <div class="rx-card__actions">
@@ -70,7 +71,7 @@ import { PrescriptionResponse } from '../../../core/models';
               <div class="rx-lines">
                 @for (line of rx.prescriptionLines; track line.id) {
                   <div class="rx-line">
-                    <div class="rx-line__name">{{ line.medicationName }}</div>
+                    <div class="rx-line__name">{{ line.medicationName || line.medicationId }}</div>
                     <div class="rx-line__detail">
                       <span class="badge badge--gray">{{ line.dosage }}</span>
                       <span class="badge badge--gray">{{ line.duration }}</span>
@@ -160,6 +161,12 @@ import { PrescriptionResponse } from '../../../core/models';
       font-size: 12px;
       color: var(--color-text-3);
       margin-top: 2px;
+    }
+
+    .rx-card__meta {
+      font-size: 12px;
+      color: var(--color-text-2);
+      margin-top: 3px;
     }
 
     .rx-card__notes {
@@ -265,5 +272,13 @@ export class PatientPrescriptionsComponent implements OnInit {
       },
       error: () => this.downloadingPrescriptionId.set(null),
     });
+  }
+
+  formatDoctorName(prescription: PrescriptionResponse): string {
+    if (prescription.doctor) {
+      return `Dr. ${prescription.doctor.firstName} ${prescription.doctor.lastName}`;
+    }
+
+    return `Dr. ${prescription.doctorId}`;
   }
 }

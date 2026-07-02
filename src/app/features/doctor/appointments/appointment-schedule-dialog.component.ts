@@ -57,7 +57,7 @@ export class AppointmentScheduleDialogComponent {
     this.data.patients.map((patient) => ({
       id: patient.functionalId ?? patient.id,
       label: `${patient.firstName} ${patient.lastName}`,
-      helper: [patient.email, patient.functionalId ?? patient.id].filter(Boolean).join(' • '),
+      helper: [patient.email, patient.functionalId ?? patient.id].filter(Boolean).join(' | '),
     })),
   );
 

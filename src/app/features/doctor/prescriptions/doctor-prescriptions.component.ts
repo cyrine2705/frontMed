@@ -198,7 +198,7 @@ interface LineGroup extends FormGroup {
             <mat-card-content>
               <div class="rx-card__header">
                 <div>
-                  <div class="rx-card__patient">Patient: {{ rx.patient ? rx.patient.firstName + ' ' + rx.patient.lastName : rx.patientId }}</div>
+                  <div class="rx-card__patient">Patient: {{ formatPatientName(rx) }}</div>
                   <div class="rx-card__date">Reference: {{ rx.patient?.functionalId ?? rx.patientId }}</div>
                   <div class="rx-card__date">{{ rx.createdAt | date:'MMM d, yyyy' }}</div>
                 </div>
@@ -240,7 +240,7 @@ interface LineGroup extends FormGroup {
                   <div class="rx-line-item">
                     <mat-icon>medication</mat-icon>
                     <div>
-                      <span class="rx-line-item__name">{{ line.medicationName }}</span>
+                      <span class="rx-line-item__name">{{ line.medicationName || line.medicationId }}</span>
                       <span class="rx-line-item__detail">{{ line.dosage }} - {{ line.duration }}</span>
                     </div>
                   </div>
@@ -595,6 +595,14 @@ export class DoctorPrescriptionsComponent implements OnInit {
 
     return typeof med === 'string' ? med : med.name;
   };
+
+  formatPatientName(prescription: PrescriptionResponse): string {
+    if (prescription.patient) {
+      return `${prescription.patient.firstName} ${prescription.patient.lastName}`;
+    }
+
+    return prescription.patientId;
+  }
 
   submit(): void {
     if (this.form.invalid || this.lines.length === 0) {

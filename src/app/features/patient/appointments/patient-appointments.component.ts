@@ -40,7 +40,12 @@ import { fromLocalDateTimeString } from '../../../core/utils/datetime.util';
           <ng-container matColumnDef="doctor">
             <th mat-header-cell *matHeaderCellDef>Doctor</th>
             <td mat-cell *matCellDef="let a">
-              {{ a.doctor ? 'Dr. ' + a.doctor.lastName : a.doctorId }}
+              <div class="doctor-cell">
+                <span class="doctor-cell__name">{{ formatDoctorName(a) }}</span>
+                @if (a.doctor?.specialty) {
+                  <span class="doctor-cell__meta">{{ a.doctor?.specialty }}</span>
+                }
+              </div>
             </td>
           </ng-container>
 
@@ -116,6 +121,22 @@ import { fromLocalDateTimeString } from '../../../core/utils/datetime.util';
       font-size: 14px;
     }
 
+    .doctor-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .doctor-cell__name {
+      color: var(--color-text-1);
+      font-weight: 500;
+    }
+
+    .doctor-cell__meta {
+      color: var(--color-text-3);
+      font-size: 12px;
+    }
+
     th.mat-mdc-header-cell, td.mat-mdc-cell {
       padding: 12px 16px !important;
       font-size: 13px;
@@ -171,5 +192,13 @@ export class PatientAppointmentsComponent implements OnInit {
       ' ' +
       d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
     );
+  }
+
+  formatDoctorName(appointment: AppointmentResponse): string {
+    if (appointment.doctor) {
+      return `Dr. ${appointment.doctor.firstName} ${appointment.doctor.lastName}`;
+    }
+
+    return appointment.doctorId;
   }
 }
