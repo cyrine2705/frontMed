@@ -9,7 +9,9 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { PatientResponse } from '../../../core/models';
+import { ProfileService } from '../../../core/services/profile.service';
 import { UserService } from '../../../core/services/user.service';
+import { API_URL } from '../../../core/tokens/api.token';
 
 @Component({
   selector: 'app-admin-patient-profile',
@@ -42,15 +44,37 @@ import { UserService } from '../../../core/services/user.service';
             <mat-card class="profile-card profile-card--hero">
               <mat-card-content>
                 <div class="profile-hero">
-                  <img [src]="getPatientImage(currentPatient)" [alt]="currentPatient.firstName + ' ' + currentPatient.lastName">
+                  <div class="profile-hero__visual">
+                    <img [src]="getPatientImage(currentPatient)" [alt]="currentPatient.firstName + ' ' + currentPatient.lastName">
+                    <input
+                      #patientImageInput
+                      type="file"
+                      accept="image/*"
+                      hidden
+                      (change)="uploadPatientImage($event)"
+                    >
+                    <button
+                      mat-stroked-button
+                      type="button"
+                      class="profile-photo-action"
+                      [disabled]="uploadingImage()"
+                      (click)="patientImageInput.click()"
+                    >
+                      <mat-icon>{{ uploadingImage() ? 'hourglass_top' : 'photo_camera' }}</mat-icon>
+                      {{ uploadingImage() ? 'Uploading...' : 'Update photo' }}
+                    </button>
+                  </div>
                   <div class="profile-hero__copy">
                     <span class="badge badge--gray">{{ currentPatient.bloodType || 'No blood type' }}</span>
                     <h1>{{ currentPatient.firstName }} {{ currentPatient.lastName }}</h1>
                     <p>{{ currentPatient.email }}</p>
                     <div class="profile-hero__meta">
                       <span><mat-icon>cake</mat-icon>{{ currentPatient.birthDate || 'Unknown' }}</span>
-                      <span><mat-icon>badge</mat-icon>{{ currentPatient.maskedSocialSecurityNumber || currentPatient.socialSecurityNumber || 'N/A' }}</span>
+                      <span><mat-icon>badge</mat-icon>{{ currentPatient.socialSecurityNumber || 'N/A' }}</span>
                     </div>
+                    @if (uploadError()) {
+                      <p class="profile-upload-error">{{ uploadError() }}</p>
+                    }
                   </div>
                 </div>
               </mat-card-content>
@@ -110,7 +134,7 @@ import { UserService } from '../../../core/services/user.service';
                   </div>
                   <div class="info-row">
                     <span>Social security number</span>
-                    <strong>{{ currentPatient.maskedSocialSecurityNumber || currentPatient.socialSecurityNumber || 'Not provided' }}</strong>
+                    <strong>{{ currentPatient.socialSecurityNumber || 'Not provided' }}</strong>
                   </div>
                   <div class="info-row">
                     <span>Account status</span>
@@ -143,12 +167,21 @@ import { UserService } from '../../../core/services/user.service';
       gap: 20px;
       align-items: center;
     }
+    .profile-hero__visual {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
     .profile-hero img {
       width: 100%;
       aspect-ratio: 1 / 1;
       object-fit: cover;
       border-radius: 8px;
       background: #eef5ff;
+    }
+    .profile-photo-action {
+      align-self: stretch;
+      justify-content: center;
     }
     .profile-hero__copy h1 {
       margin: 10px 0 8px;
@@ -179,6 +212,11 @@ import { UserService } from '../../../core/services/user.service';
       height: 16px;
       font-size: 16px;
       color: var(--color-primary);
+    }
+    .profile-upload-error {
+      margin-top: 12px;
+      color: var(--color-danger);
+      font-size: 13px;
     }
     .summary-grid {
       display: grid;
@@ -268,9 +306,13 @@ export class AdminPatientProfileComponent {
   private readonly destroyRef = inject(DestroyRef);
   private readonly route = inject(ActivatedRoute);
   private readonly userService = inject(UserService);
+  private readonly profileService = inject(ProfileService);
+  private readonly api = inject(API_URL);
 
   readonly loading = signal(true);
   readonly patient = signal<PatientResponse | null>(null);
+  readonly uploadingImage = signal(false);
+  readonly uploadError = signal('');
 
   constructor() {
     this.route.paramMap
@@ -284,7 +326,7 @@ export class AdminPatientProfileComponent {
 
           this.loading.set(true);
           return forkJoin({
-            profile: this.userService.getPatientProfile(patientId),
+            profile: this.profileService.getPatientProfile(patientId),
             summary: this.userService.getPatientSummary(patientId),
           }).pipe(
             catchError(() => of(null)),
@@ -304,12 +346,61 @@ export class AdminPatientProfileComponent {
       : this.userService.unarchivePatient(patient.id);
 
     request$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((updatedPatient) => {
-      this.patient.set(updatedPatient);
+      this.patient.update((currentPatient) =>
+        currentPatient ? { ...currentPatient, ...updatedPatient } : updatedPatient
+      );
     });
   }
 
+  uploadPatientImage(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const imageFile = input.files?.[0];
+    const currentPatient = this.patient();
+
+    if (!imageFile || !currentPatient) {
+      return;
+    }
+
+    this.uploadingImage.set(true);
+    this.uploadError.set('');
+
+    this.profileService
+      .uploadPatientProfileImage(currentPatient.id, imageFile)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (updatedPatient) => {
+          this.patient.update((patient) => (patient ? { ...patient, ...updatedPatient } : updatedPatient));
+          this.uploadingImage.set(false);
+          input.value = '';
+        },
+        error: (err) => {
+          this.uploadError.set(err.error?.message ?? 'Failed to upload the patient profile image.');
+          this.uploadingImage.set(false);
+          input.value = '';
+        },
+      });
+  }
+
   getPatientImage(patient: PatientResponse): string {
+    const imageUrl = this.resolveAssetUrl(patient.profileImageUrl);
+    if (imageUrl) {
+      return imageUrl;
+    }
+
     const name = encodeURIComponent(`${patient.firstName} ${patient.lastName}`);
     return `https://placehold.co/720x720/f4f8ff/2563eb?text=${name}`;
+  }
+
+  private resolveAssetUrl(assetPath?: string): string | null {
+    if (!assetPath?.trim()) {
+      return null;
+    }
+
+    if (assetPath.startsWith('http://') || assetPath.startsWith('https://')) {
+      return assetPath;
+    }
+
+    const apiRoot = this.api.endsWith('/api') ? this.api.slice(0, -4) : this.api;
+    return `${apiRoot}${assetPath.startsWith('/') ? assetPath : `/${assetPath}`}`;
   }
 }

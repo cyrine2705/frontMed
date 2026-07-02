@@ -4,6 +4,7 @@ import { map, Observable, tap } from 'rxjs';
 import { API_URL } from '../tokens/api.token';
 import {
   CreatePrescriptionRequest,
+  PrescriptionDetailsResponse,
   PrescriptionLineResponse,
   PrescriptionResponse,
   UpdatePrescriptionRequest,
@@ -17,8 +18,33 @@ interface RawPrescriptionLineResponse {
   duration: string;
 }
 
-interface RawPrescriptionResponse extends Omit<PrescriptionResponse, 'prescriptionLines'> {
+interface RawPrescriptionDoctorMetadata {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  specialty?: string;
+  phoneNumber?: string;
+  clinicAddress?: string;
+  medicalLicenseNumber?: string;
+  profileImageUrl?: string;
+}
+
+interface RawPrescriptionPatientMetadata {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  birthDate?: string;
+  socialSecurityNumber?: string;
+  bloodType?: string;
+  profileImageUrl?: string;
+}
+
+interface RawPrescriptionResponse extends Omit<PrescriptionDetailsResponse, 'prescriptionLines'> {
   prescriptionLines?: RawPrescriptionLineResponse[];
+  doctor?: RawPrescriptionDoctorMetadata;
+  patient?: RawPrescriptionPatientMetadata;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -29,7 +55,7 @@ export class PrescriptionService {
 
   private readonly _doctorPrescriptions = signal<PrescriptionResponse[]>([]);
   private readonly _patientPrescriptions = signal<PrescriptionResponse[]>([]);
-  private readonly _selectedPrescription = signal<PrescriptionResponse | null>(null);
+  private readonly _selectedPrescription = signal<PrescriptionDetailsResponse | null>(null);
 
   readonly doctorPrescriptions = this._doctorPrescriptions.asReadonly();
   readonly patientPrescriptions = this._patientPrescriptions.asReadonly();
@@ -68,7 +94,7 @@ export class PrescriptionService {
       );
   }
 
-  getDetails(id: string): Observable<PrescriptionResponse> {
+  getDetails(id: string): Observable<PrescriptionDetailsResponse> {
     return this.http
       .get<RawPrescriptionResponse>(`${this.base}/${id}/details`)
       .pipe(
@@ -125,7 +151,7 @@ export class PrescriptionService {
     };
   }
 
-  private normalizePrescription(prescription: RawPrescriptionResponse): PrescriptionResponse {
+  private normalizePrescription(prescription: RawPrescriptionResponse): PrescriptionDetailsResponse {
     return {
       ...prescription,
       doctorNotes: this.cleanOptionalString(prescription.doctorNotes),

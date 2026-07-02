@@ -28,6 +28,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { PrescriptionService } from '../../../core/services/prescription.service';
 import { MedicationService } from '../../../core/services/medication.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { PdfGeneratorService } from '../../../core/services/pdf-generator.service';
 import { MedicationResponse, PrescriptionResponse } from '../../../core/models';
 
 interface LineGroup extends FormGroup {
@@ -202,6 +203,15 @@ interface LineGroup extends FormGroup {
                 </div>
                 <div class="rx-card__actions">
                   <button
+                    mat-stroked-button
+                    class="rx-card__download"
+                    [disabled]="downloadingPrescriptionId() === rx.id"
+                    (click)="downloadPdf(rx.id)"
+                  >
+                    <mat-icon>{{ downloadingPrescriptionId() === rx.id ? 'hourglass_top' : 'download' }}</mat-icon>
+                    {{ downloadingPrescriptionId() === rx.id ? 'Preparing...' : 'PDF' }}
+                  </button>
+                  <button
                     mat-icon-button
                     color="primary"
                     matTooltip="Edit prescription"
@@ -230,7 +240,7 @@ interface LineGroup extends FormGroup {
                     <mat-icon>medication</mat-icon>
                     <div>
                       <span class="rx-line-item__name">{{ line.medicationName }}</span>
-                      <span class="rx-line-item__detail">{{ line.dosage }} · {{ line.duration }}</span>
+                      <span class="rx-line-item__detail">{{ line.dosage }} - {{ line.duration }}</span>
                     </div>
                   </div>
                 }
@@ -383,7 +393,13 @@ interface LineGroup extends FormGroup {
       display: inline-flex;
       align-items: center;
       gap: 4px;
+      flex-wrap: wrap;
       white-space: nowrap;
+    }
+
+    .rx-card__download {
+      min-width: 108px;
+      justify-content: center;
     }
 
     .rx-card__patient {
@@ -464,11 +480,13 @@ export class DoctorPrescriptionsComponent implements OnInit {
   private readonly rxSvc = inject(PrescriptionService);
   private readonly medSvc = inject(MedicationService);
   private readonly auth = inject(AuthService);
+  private readonly pdfGenerator = inject(PdfGeneratorService);
 
   readonly prescriptions = signal<PrescriptionResponse[]>([]);
   readonly showForm = signal(false);
   readonly loading = signal(false);
   readonly saving = signal(false);
+  readonly downloadingPrescriptionId = signal<string | null>(null);
   readonly formError = signal('');
   readonly editingPrescriptionId = signal<string | null>(null);
   readonly isEditMode = computed(() => this.editingPrescriptionId() !== null);
@@ -633,6 +651,21 @@ export class DoctorPrescriptionsComponent implements OnInit {
 
     this.rxSvc.delete(id).subscribe({
       next: () => this.prescriptions.update((items) => items.filter((prescription) => prescription.id !== id)),
+    });
+  }
+
+  downloadPdf(id: string): void {
+    this.downloadingPrescriptionId.set(id);
+
+    this.rxSvc.getDetails(id).subscribe({
+      next: (prescription) => {
+        this.pdfGenerator.downloadPrescriptionPdf(prescription);
+        this.downloadingPrescriptionId.set(null);
+      },
+      error: () => {
+        this.formError.set('Failed to generate the prescription PDF.');
+        this.downloadingPrescriptionId.set(null);
+      },
     });
   }
 

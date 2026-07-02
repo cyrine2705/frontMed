@@ -40,7 +40,7 @@ import { PatientResponse } from '../../../core/models';
           <ng-container matColumnDef="ssn">
             <th mat-header-cell *matHeaderCellDef>SSN</th>
             <td mat-cell *matCellDef="let p">
-              {{ p.maskedSocialSecurityNumber || p.socialSecurityNumber || 'N/A' }}
+              {{ p.socialSecurityNumber || 'N/A' }}
             </td>
           </ng-container>
 

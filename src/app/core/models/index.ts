@@ -1,4 +1,5 @@
 export type UserRole = 'ADMIN' | 'DOCTOR' | 'PATIENT';
+export type ProfileRole = 'DOCTOR' | 'PATIENT';
 
 export interface UserResponse {
   id: string;
@@ -51,6 +52,7 @@ export interface DoctorResponse {
   clinicAddress?: string;
   createdAt: string;
   isActive: boolean;
+  profileImageUrl?: string;
   totalAppointments?: number;
   totalPrescriptions?: number;
   activePatientsCount?: number;
@@ -79,6 +81,7 @@ export interface PatientResponse {
   bloodType: string;
   createdAt: string;
   isActive: boolean;
+  profileImageUrl?: string;
   totalAppointments?: number;
   totalPrescriptions?: number;
 }
@@ -170,9 +173,34 @@ export interface PrescriptionResponse {
   recipientEmail?: string;
   createdAt: string;
   prescriptionLines: PrescriptionLineResponse[];
-  doctor?: DoctorResponse;
-  patient?: PatientResponse;
+  doctor?: PrescriptionDoctorMetadata;
+  patient?: PrescriptionPatientMetadata;
 }
+
+export interface PrescriptionDoctorMetadata {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  specialty?: string;
+  phoneNumber?: string;
+  clinicAddress?: string;
+  medicalLicenseNumber?: string;
+  profileImageUrl?: string;
+}
+
+export interface PrescriptionPatientMetadata {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  birthDate?: string;
+  socialSecurityNumber?: string;
+  bloodType?: string;
+  profileImageUrl?: string;
+}
+
+export interface PrescriptionDetailsResponse extends PrescriptionResponse {}
 
 export interface CreatePrescriptionRequest {
   doctorId: string;
@@ -183,6 +211,8 @@ export interface CreatePrescriptionRequest {
 }
 
 export interface UpdatePrescriptionRequest extends CreatePrescriptionRequest {}
+
+export type UserProfileResponse = DoctorResponse | PatientResponse;
 
 export interface ChatRequest {
   message: string;

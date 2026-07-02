@@ -1,17 +1,19 @@
 import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
+import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
 import { PrescriptionService } from '../../../core/services/prescription.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { PdfGeneratorService } from '../../../core/services/pdf-generator.service';
 import { PrescriptionResponse } from '../../../core/models';
 
 @Component({
   selector: 'app-patient-prescriptions',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, MatCardModule, MatExpansionModule, MatIconModule],
+  imports: [DatePipe, MatButtonModule, MatCardModule, MatExpansionModule, MatIconModule],
   template: `
     <div class="page">
       <header class="page__header">
@@ -34,7 +36,18 @@ import { PrescriptionResponse } from '../../../core/models';
                   </div>
                   <div class="rx-card__date">Issued {{ rx.createdAt | date:'MMMM d, yyyy' }}</div>
                 </div>
-                <span class="badge badge--blue">{{ rx.prescriptionLines.length }} med(s)</span>
+                <div class="rx-card__actions">
+                  <span class="badge badge--blue">{{ rx.prescriptionLines.length }} med(s)</span>
+                  <button
+                    mat-stroked-button
+                    class="rx-card__download"
+                    [disabled]="downloadingPrescriptionId() === rx.id"
+                    (click)="downloadPdf(rx.id)"
+                  >
+                    <mat-icon>{{ downloadingPrescriptionId() === rx.id ? 'hourglass_top' : 'download' }}</mat-icon>
+                    {{ downloadingPrescriptionId() === rx.id ? 'Preparing...' : 'Download PDF' }}
+                  </button>
+                </div>
               </div>
 
               @if (rx.doctorNotes) {
@@ -83,6 +96,15 @@ import { PrescriptionResponse } from '../../../core/models';
       justify-content: space-between;
       align-items: flex-start;
       margin-bottom: 12px;
+      gap: 12px;
+    }
+
+    .rx-card__actions {
+      display: inline-flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
     }
 
     .rx-card__doctor {
@@ -145,14 +167,21 @@ import { PrescriptionResponse } from '../../../core/models';
         gap: 6px;
       }
     }
+
+    .rx-card__download {
+      min-width: 150px;
+      justify-content: center;
+    }
   `],
 })
 export class PatientPrescriptionsComponent implements OnInit {
   private readonly rxSvc = inject(PrescriptionService);
   private readonly auth  = inject(AuthService);
+  private readonly pdfGenerator = inject(PdfGeneratorService);
 
   readonly prescriptions = signal<PrescriptionResponse[]>([]);
   readonly loading       = signal(false);
+  readonly downloadingPrescriptionId = signal<string | null>(null);
 
   ngOnInit(): void {
     this.loading.set(true);
@@ -165,6 +194,18 @@ export class PatientPrescriptionsComponent implements OnInit {
         this.loading.set(false);
       },
       error: () => this.loading.set(false),
+    });
+  }
+
+  downloadPdf(id: string): void {
+    this.downloadingPrescriptionId.set(id);
+
+    this.rxSvc.getDetails(id).subscribe({
+      next: (prescription) => {
+        this.pdfGenerator.downloadPrescriptionPdf(prescription);
+        this.downloadingPrescriptionId.set(null);
+      },
+      error: () => this.downloadingPrescriptionId.set(null),
     });
   }
 }
