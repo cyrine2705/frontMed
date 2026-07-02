@@ -1,0 +1,246 @@
+<div class="page">
+  <header class="page__header">
+    <div class="page__header-row">
+      <div>
+        <h1>Medications</h1>
+        <p>Manage the catalog, visuals, and medical descriptions.</p>
+      </div>
+
+      <div class="page__header-actions">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="search-field">
+          <mat-label>Search catalog</mat-label>
+          <mat-icon matPrefix>search</mat-icon>
+          <input
+            matInput
+            [value]="searchQuery()"
+            (input)="searchQuery.set($any($event.target).value)"
+            placeholder="Name, category, laboratory"
+          >
+        </mat-form-field>
+
+        <button
+          mat-flat-button
+          color="primary"
+          (click)="showForm() ? cancelForm() : openCreateForm()"
+        >
+          <mat-icon>{{ showForm() ? 'close' : 'add' }}</mat-icon>
+          {{ showForm() ? 'Cancel' : 'Add medication' }}
+        </button>
+      </div>
+    </div>
+  </header>
+
+  @if (showForm()) {
+    <div class="editor-grid">
+      <mat-card class="form-card">
+        <mat-card-content>
+          <div class="section-heading">
+            <div>
+              <h2>{{ isEditMode() ? 'Edit medication' : 'New medication' }}</h2>
+              <p>Keep the description rich and the image clear for a better catalog.</p>
+            </div>
+            @if (isEditMode()) {
+              <span class="badge badge--blue">Editing</span>
+            }
+          </div>
+
+          <form [formGroup]="form" (ngSubmit)="submit()" class="medication-form">
+            <div class="form-grid">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Name</mat-label>
+                <input matInput formControlName="name" maxlength="120">
+                @if (form.controls.name.invalid && form.controls.name.touched) {
+                  <mat-error>Name is required</mat-error>
+                }
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Category</mat-label>
+                <input matInput formControlName="category" maxlength="80">
+                @if (form.controls.category.invalid && form.controls.category.touched) {
+                  <mat-error>Category is required</mat-error>
+                }
+              </mat-form-field>
+            </div>
+
+            <div class="form-grid">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Laboratory</mat-label>
+                <input matInput formControlName="laboratory" maxlength="120">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>External image URL</mat-label>
+                <input matInput formControlName="imageUrl" placeholder="https://placehold.co/...">
+                <mat-hint>Optional fallback when no image file is uploaded</mat-hint>
+              </mat-form-field>
+            </div>
+
+            <div class="upload-panel">
+              <div class="upload-panel__copy">
+                <span class="upload-panel__label">Medication image</span>
+                <span class="upload-panel__hint">Upload a product visual or keep the current one.</span>
+              </div>
+
+              <div class="upload-panel__actions">
+                <input #fileInput type="file" accept="image/*" hidden (change)="onImageSelected($event)">
+                <button mat-stroked-button type="button" (click)="fileInput.click()">
+                  <mat-icon>upload</mat-icon>
+                  Choose image
+                </button>
+                <button
+                  mat-button
+                  type="button"
+                  (click)="clearImageSelection(fileInput)"
+                  [disabled]="!canClearImageSelection()"
+                >
+                  Clear selection
+                </button>
+              </div>
+            </div>
+
+            <div class="editor-field">
+              <label class="editor-field__label">Description</label>
+              <quill-editor
+                formControlName="description"
+                placeholder="Enter the clinical description, recommendations, and usage context."
+              />
+            </div>
+
+            @if (formError()) {
+              <div class="form-error">{{ formError() }}</div>
+            }
+
+            <div class="form-actions">
+              <button mat-button type="button" (click)="cancelForm()">Cancel</button>
+              <button mat-flat-button color="primary" type="submit" [disabled]="saving()">
+                @if (saving()) {
+                  <mat-spinner diameter="18" />
+                }
+                <span>{{ saving() ? 'Saving medication...' : (isEditMode() ? 'Update medication' : 'Create medication') }}</span>
+              </button>
+            </div>
+          </form>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="preview-card">
+        <img class="preview-card__image" [src]="previewImageUrl()" alt="Medication preview">
+        <mat-card-content>
+          <div class="preview-card__meta">
+            <span class="badge badge--blue">{{ form.controls.category.value || 'Category' }}</span>
+            @if (form.controls.laboratory.value) {
+              <span class="preview-card__lab">{{ form.controls.laboratory.value }}</span>
+            }
+          </div>
+
+          <h3 class="preview-card__title">{{ form.controls.name.value || 'Medication name' }}</h3>
+
+          @if (sanitizedDescription()) {
+            <div class="med-rich-html preview-card__description" [innerHTML]="sanitizedDescription()"></div>
+          } @else {
+            <p class="preview-card__empty">
+              The rich description preview will appear here as soon as you start writing.
+            </p>
+          }
+        </mat-card-content>
+      </mat-card>
+    </div>
+  }
+
+  <mat-card class="catalog-card">
+    <mat-card-content>
+      <div class="catalog-card__header">
+        <div>
+          <h2>Medication catalog</h2>
+          <p>{{ filteredMedications().length }} item(s) ready to manage.</p>
+        </div>
+      </div>
+
+      @if (loading()) {
+        <div class="state-block">
+          <mat-spinner diameter="38" />
+        </div>
+      } @else if (filteredMedications().length === 0) {
+        <div class="state-block state-block--empty">
+          <mat-icon>inventory_2</mat-icon>
+          <span>No medications match this search yet.</span>
+        </div>
+      } @else {
+        <div class="table-shell">
+          <table mat-table [dataSource]="filteredMedications()">
+            <ng-container matColumnDef="image">
+              <th mat-header-cell *matHeaderCellDef>Preview</th>
+              <td mat-cell *matCellDef="let medication">
+                <img
+                  class="medication-thumb"
+                  [src]="getMedicationImage(medication)"
+                  [alt]="medication.name"
+                >
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="name">
+              <th mat-header-cell *matHeaderCellDef>Name</th>
+              <td mat-cell *matCellDef="let medication">
+                <div class="medication-cell">
+                  <span class="medication-cell__name">{{ medication.name }}</span>
+                  @if (medication.description) {
+                    <span class="medication-cell__hint">{{ getDescriptionExcerpt(medication.description) }}</span>
+                  }
+                </div>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="category">
+              <th mat-header-cell *matHeaderCellDef>Category</th>
+              <td mat-cell *matCellDef="let medication">
+                <span class="badge badge--gray">{{ medication.category }}</span>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="laboratory">
+              <th mat-header-cell *matHeaderCellDef>Laboratory</th>
+              <td mat-cell *matCellDef="let medication">
+                {{ medication.laboratory || 'Not provided' }}
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef></th>
+              <td mat-cell *matCellDef="let medication">
+                <div class="row-actions">
+                  <button
+                    mat-icon-button
+                    color="primary"
+                    matTooltip="Edit medication"
+                    (click)="editMedication(medication)"
+                  >
+                    <mat-icon>edit</mat-icon>
+                  </button>
+
+                  <button
+                    mat-icon-button
+                    color="warn"
+                    matTooltip="Delete medication"
+                    (click)="deleteMedication(medication)"
+                    [disabled]="deletingMedicationId() === medication.id"
+                  >
+                    @if (deletingMedicationId() === medication.id) {
+                      <mat-spinner diameter="18" />
+                    } @else {
+                      <mat-icon>delete</mat-icon>
+                    }
+                  </button>
+                </div>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="columns"></tr>
+            <tr mat-row *matRowDef="let row; columns: columns"></tr>
+          </table>
+        </div>
+      }
+    </mat-card-content>
+  </mat-card>
+</div>

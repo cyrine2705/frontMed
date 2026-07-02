@@ -1,9 +1,18 @@
 import {
-  ChangeDetectionStrategy, Component, inject, OnInit, signal,
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  OnInit,
+  signal,
 } from '@angular/core';
 import {
-  FormArray, FormBuilder, FormControl, FormGroup,
-  ReactiveFormsModule, Validators,
+  FormArray,
+  FormBuilder,
+  FormControl,
+  FormGroup,
+  ReactiveFormsModule,
+  Validators,
 } from '@angular/forms';
 import { AsyncPipe, DatePipe } from '@angular/common';
 import { Observable, of } from 'rxjs';
@@ -18,16 +27,15 @@ import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { PrescriptionService } from '../../../core/services/prescription.service';
 import { MedicationService } from '../../../core/services/medication.service';
-import { UserService } from '../../../core/services/user.service';
 import { AuthService } from '../../../core/services/auth.service';
-import { MedicationResponse, PatientResponse, PrescriptionResponse } from '../../../core/models';
+import { MedicationResponse, PrescriptionResponse } from '../../../core/models';
 
 interface LineGroup extends FormGroup {
   controls: {
     medicationSearch: FormControl<string>;
-    medicationId:     FormControl<string>;
-    dosage:           FormControl<string>;
-    duration:         FormControl<string>;
+    medicationId: FormControl<string>;
+    dosage: FormControl<string>;
+    duration: FormControl<string>;
   };
 }
 
@@ -36,10 +44,17 @@ interface LineGroup extends FormGroup {
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    ReactiveFormsModule, AsyncPipe, DatePipe,
-    MatAutocompleteModule, MatButtonModule, MatCardModule,
-    MatFormFieldModule, MatIconModule, MatInputModule,
-    MatTableModule, MatTooltipModule,
+    ReactiveFormsModule,
+    AsyncPipe,
+    DatePipe,
+    MatAutocompleteModule,
+    MatButtonModule,
+    MatCardModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatInputModule,
+    MatTableModule,
+    MatTooltipModule,
   ],
   template: `
     <div class="page">
@@ -47,7 +62,7 @@ interface LineGroup extends FormGroup {
         <div class="page__header-row">
           <div>
             <h1>Prescriptions</h1>
-            <p>Issue and review prescriptions</p>
+            <p>Issue, revise, and review prescriptions</p>
           </div>
           <button mat-flat-button color="primary" (click)="toggleForm()">
             <mat-icon>{{ showForm() ? 'close' : 'add' }}</mat-icon>
@@ -56,17 +71,17 @@ interface LineGroup extends FormGroup {
         </div>
       </header>
 
-      <!-- Create prescription form -->
       @if (showForm()) {
         <mat-card class="form-card">
           <mat-card-content>
-            <h2 class="form-section-title">New prescription</h2>
-            <form [formGroup]="form" (ngSubmit)="submit()" class="rx-form">
+            <h2 class="form-section-title">
+              {{ isEditMode() ? 'Edit prescription' : 'New prescription' }}
+            </h2>
 
+            <form [formGroup]="form" (ngSubmit)="submit()" class="rx-form">
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Patient ID</mat-label>
-                <input matInput formControlName="patientId"
-                       placeholder="Enter patient UUID">
+                <input matInput formControlName="patientId" placeholder="Enter patient UUID">
                 @if (form.get('patientId')?.invalid && form.get('patientId')?.touched) {
                   <mat-error>Required</mat-error>
                 }
@@ -82,7 +97,6 @@ interface LineGroup extends FormGroup {
                 <input matInput type="email" formControlName="recipientEmail">
               </mat-form-field>
 
-              <!-- Prescription lines -->
               <div class="lines-section">
                 <div class="lines-section__header">
                   <span class="lines-section__title">Medications</span>
@@ -97,17 +111,20 @@ interface LineGroup extends FormGroup {
                     <div class="rx-line__idx">{{ $index + 1 }}</div>
 
                     <div class="rx-line__fields">
-                      <!-- Medication autocomplete -->
                       <mat-form-field appearance="outline" subscriptSizing="dynamic" class="rx-line__med">
                         <mat-label>Medication</mat-label>
-                        <input matInput
-                               formControlName="medicationSearch"
-                               [matAutocomplete]="auto"
-                               (input)="clearMedId($index)"
-                               placeholder="Type to search…">
-                        <mat-autocomplete #auto="matAutocomplete"
-                                          [displayWith]="displayMed"
-                                          (optionSelected)="onMedSelected($index, $event)">
+                        <input
+                          matInput
+                          formControlName="medicationSearch"
+                          [matAutocomplete]="auto"
+                          (input)="clearMedId($index)"
+                          placeholder="Type to search..."
+                        >
+                        <mat-autocomplete
+                          #auto="matAutocomplete"
+                          [displayWith]="displayMed"
+                          (optionSelected)="onMedSelected($index, $event)"
+                        >
                           @for (med of (lineResults[$index] | async); track med.id) {
                             <mat-option [value]="med">
                               <div class="med-option">
@@ -117,8 +134,10 @@ interface LineGroup extends FormGroup {
                             </mat-option>
                           }
                         </mat-autocomplete>
-                        @if (castLine(line).controls.medicationId.invalid &&
-                             castLine(line).controls.medicationSearch.touched) {
+                        @if (
+                          castLine(line).controls.medicationId.invalid &&
+                          castLine(line).controls.medicationSearch.touched
+                        ) {
                           <mat-error>Select a medication from the list</mat-error>
                         }
                       </mat-form-field>
@@ -126,8 +145,7 @@ interface LineGroup extends FormGroup {
                       <mat-form-field appearance="outline" subscriptSizing="dynamic">
                         <mat-label>Dosage</mat-label>
                         <input matInput formControlName="dosage" placeholder="e.g. 500mg twice daily">
-                        @if (castLine(line).controls.dosage.invalid &&
-                             castLine(line).controls.dosage.touched) {
+                        @if (castLine(line).controls.dosage.invalid && castLine(line).controls.dosage.touched) {
                           <mat-error>Required</mat-error>
                         }
                       </mat-form-field>
@@ -135,16 +153,19 @@ interface LineGroup extends FormGroup {
                       <mat-form-field appearance="outline" subscriptSizing="dynamic">
                         <mat-label>Duration</mat-label>
                         <input matInput formControlName="duration" placeholder="e.g. 7 days">
-                        @if (castLine(line).controls.duration.invalid &&
-                             castLine(line).controls.duration.touched) {
+                        @if (castLine(line).controls.duration.invalid && castLine(line).controls.duration.touched) {
                           <mat-error>Required</mat-error>
                         }
                       </mat-form-field>
                     </div>
 
-                    <button mat-icon-button type="button" color="warn"
-                            (click)="removeLine($index)"
-                            [disabled]="lines.length === 1">
+                    <button
+                      mat-icon-button
+                      type="button"
+                      color="warn"
+                      (click)="removeLine($index)"
+                      [disabled]="lines.length === 1"
+                    >
                       <mat-icon>remove_circle_outline</mat-icon>
                     </button>
                   </div>
@@ -162,7 +183,7 @@ interface LineGroup extends FormGroup {
               <div class="rx-form__actions">
                 <button mat-stroked-button type="button" (click)="toggleForm()">Cancel</button>
                 <button mat-flat-button color="primary" type="submit" [disabled]="saving()">
-                  {{ saving() ? 'Saving…' : 'Issue prescription' }}
+                  {{ saving() ? 'Saving...' : (isEditMode() ? 'Save changes' : 'Issue prescription') }}
                 </button>
               </div>
             </form>
@@ -170,23 +191,33 @@ interface LineGroup extends FormGroup {
         </mat-card>
       }
 
-      <!-- Prescriptions list -->
       <div class="rx-list">
         @for (rx of prescriptions(); track rx.id) {
           <mat-card class="rx-card">
             <mat-card-content>
               <div class="rx-card__header">
                 <div>
-                  <div class="rx-card__patient">
-                    Patient: {{ rx.patient ? rx.patient.firstName + ' ' + rx.patient.lastName : rx.patientId }}
-                  </div>
+                  <div class="rx-card__patient">Patient: {{ rx.patient ? rx.patient.firstName + ' ' + rx.patient.lastName : rx.patientId }}</div>
                   <div class="rx-card__date">{{ rx.createdAt | date:'MMM d, yyyy' }}</div>
                 </div>
-                <button mat-icon-button color="warn"
-                        matTooltip="Delete prescription"
-                        (click)="delete(rx.id)">
-                  <mat-icon>delete</mat-icon>
-                </button>
+                <div class="rx-card__actions">
+                  <button
+                    mat-icon-button
+                    color="primary"
+                    matTooltip="Edit prescription"
+                    (click)="edit(rx.id)"
+                  >
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button
+                    mat-icon-button
+                    color="warn"
+                    matTooltip="Delete prescription"
+                    (click)="delete(rx.id)"
+                  >
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </div>
               </div>
 
               @if (rx.doctorNotes) {
@@ -219,9 +250,12 @@ interface LineGroup extends FormGroup {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
+      gap: 16px;
     }
 
-    .form-card { margin-bottom: 16px; }
+    .form-card {
+      margin-bottom: 16px;
+    }
 
     .form-section-title {
       font-size: 15px;
@@ -234,13 +268,13 @@ interface LineGroup extends FormGroup {
       display: flex;
       flex-direction: column;
       gap: 12px;
+    }
 
-      &__actions {
-        display: flex;
-        gap: 8px;
-        justify-content: flex-end;
-        margin-top: 4px;
-      }
+    .rx-form__actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 4px;
     }
 
     .form-error {
@@ -258,18 +292,19 @@ interface LineGroup extends FormGroup {
       display: flex;
       flex-direction: column;
       gap: 12px;
+    }
 
-      &__header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-      }
+    .lines-section__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
 
-      &__title {
-        font-size: 14px;
-        font-weight: 600;
-        color: var(--color-text-1);
-      }
+    .lines-section__title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--color-text-1);
     }
 
     .rx-line {
@@ -279,32 +314,32 @@ interface LineGroup extends FormGroup {
       padding: 12px;
       background: var(--color-surface-2);
       border-radius: var(--radius-md);
+    }
 
-      &__idx {
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        background: var(--color-primary);
-        color: white;
-        font-size: 12px;
-        font-weight: 600;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        margin-top: 14px;
-      }
+    .rx-line__idx {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--color-primary);
+      color: white;
+      font-size: 12px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 14px;
+    }
 
-      &__fields {
-        flex: 1;
-        display: grid;
-        grid-template-columns: 2fr 1fr 1fr;
-        gap: 8px;
-      }
+    .rx-line__fields {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr;
+      gap: 8px;
+    }
 
-      &__med {
-        grid-column: 1;
-      }
+    .rx-line__med {
+      grid-column: 1;
     }
 
     .lines-empty {
@@ -318,9 +353,16 @@ interface LineGroup extends FormGroup {
       display: flex;
       flex-direction: column;
       line-height: 1.3;
+    }
 
-      &__name { font-size: 13px; font-weight: 500; }
-      &__cat  { font-size: 11px; color: var(--color-text-3); }
+    .med-option__name {
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .med-option__cat {
+      font-size: 11px;
+      color: var(--color-text-3);
     }
 
     .rx-list {
@@ -329,32 +371,38 @@ interface LineGroup extends FormGroup {
       gap: 12px;
     }
 
-    .rx-card {
-      &__header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        margin-bottom: 8px;
-      }
+    .rx-card__header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+      gap: 12px;
+    }
 
-      &__patient {
-        font-size: 14px;
-        font-weight: 600;
-        color: var(--color-text-1);
-      }
+    .rx-card__actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
 
-      &__date {
-        font-size: 12px;
-        color: var(--color-text-3);
-        margin-top: 2px;
-      }
+    .rx-card__patient {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--color-text-1);
+    }
 
-      &__notes {
-        font-size: 13px;
-        color: var(--color-text-2);
-        margin-bottom: 12px;
-        font-style: italic;
-      }
+    .rx-card__date {
+      font-size: 12px;
+      color: var(--color-text-3);
+      margin-top: 2px;
+    }
+
+    .rx-card__notes {
+      font-size: 13px;
+      color: var(--color-text-2);
+      margin-bottom: 12px;
+      font-style: italic;
     }
 
     .rx-lines {
@@ -367,28 +415,28 @@ interface LineGroup extends FormGroup {
       display: flex;
       align-items: flex-start;
       gap: 8px;
+    }
 
-      mat-icon {
-        font-size: 16px;
-        width: 16px;
-        height: 16px;
-        color: var(--color-primary);
-        margin-top: 2px;
-        flex-shrink: 0;
-      }
+    .rx-line-item mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      color: var(--color-primary);
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
 
-      &__name {
-        display: block;
-        font-size: 13px;
-        font-weight: 500;
-        color: var(--color-text-1);
-      }
+    .rx-line-item__name {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--color-text-1);
+    }
 
-      &__detail {
-        display: block;
-        font-size: 12px;
-        color: var(--color-text-3);
-      }
+    .rx-line-item__detail {
+      display: block;
+      font-size: 12px;
+      color: var(--color-text-3);
     }
 
     .list-empty {
@@ -397,25 +445,39 @@ interface LineGroup extends FormGroup {
       padding: 48px;
       font-size: 14px;
     }
+
+    @media (max-width: 980px) {
+      .rx-line__fields {
+        grid-template-columns: 1fr;
+      }
+
+      .page__header-row,
+      .lines-section__header {
+        flex-direction: column;
+        align-items: stretch;
+      }
+    }
   `],
 })
 export class DoctorPrescriptionsComponent implements OnInit {
-  private readonly fb      = inject(FormBuilder);
-  private readonly rxSvc   = inject(PrescriptionService);
-  private readonly medSvc  = inject(MedicationService);
-  private readonly auth    = inject(AuthService);
+  private readonly fb = inject(FormBuilder);
+  private readonly rxSvc = inject(PrescriptionService);
+  private readonly medSvc = inject(MedicationService);
+  private readonly auth = inject(AuthService);
 
   readonly prescriptions = signal<PrescriptionResponse[]>([]);
-  readonly showForm      = signal(false);
-  readonly loading       = signal(false);
-  readonly saving        = signal(false);
-  readonly formError     = signal('');
+  readonly showForm = signal(false);
+  readonly loading = signal(false);
+  readonly saving = signal(false);
+  readonly formError = signal('');
+  readonly editingPrescriptionId = signal<string | null>(null);
+  readonly isEditMode = computed(() => this.editingPrescriptionId() !== null);
 
   lineResults: Observable<MedicationResponse[]>[] = [];
 
   readonly form = this.fb.nonNullable.group({
-    patientId:      ['', Validators.required],
-    doctorNotes:    [''],
+    patientId: ['', Validators.required],
+    doctorNotes: [''],
     recipientEmail: [''],
     lines: this.fb.array<LineGroup>([]),
   });
@@ -430,7 +492,7 @@ export class DoctorPrescriptionsComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadPrescriptions();
-    this.addLine();
+    this.resetFormState();
   }
 
   private loadPrescriptions(): void {
@@ -448,57 +510,58 @@ export class DoctorPrescriptionsComponent implements OnInit {
   }
 
   toggleForm(): void {
-    this.showForm.update(v => !v);
-    if (this.showForm()) {
-      this.form.reset();
-      this.lines.clear();
-      this.lineResults = [];
-      this.addLine();
+    const nextState = !this.showForm();
+    this.showForm.set(nextState);
+
+    if (nextState) {
+      if (!this.isEditMode()) {
+        this.resetFormState();
+      }
+    } else {
+      this.resetFormState();
     }
   }
 
+  edit(prescriptionId: string): void {
+    this.formError.set('');
+    this.loading.set(true);
+    this.showForm.set(true);
+
+    this.rxSvc.getDetails(prescriptionId).subscribe({
+      next: (prescription) => {
+        this.editingPrescriptionId.set(prescription.id);
+        this.populateForm(prescription);
+        this.loading.set(false);
+      },
+      error: (err) => {
+        this.formError.set(err.error?.message ?? 'Failed to load prescription details.');
+        this.loading.set(false);
+      },
+    });
+  }
+
   addLine(): void {
-    const group = this.fb.nonNullable.group({
-      medicationSearch: [''],
-      medicationId:     ['', Validators.required],
-      dosage:           ['', Validators.required],
-      duration:         ['', Validators.required],
-    }) as unknown as LineGroup;
-
+    const group = this.createLineGroup();
     this.lines.push(group);
-
-    const search$: Observable<MedicationResponse[]> =
-      group.controls.medicationSearch.valueChanges.pipe(
-        debounceTime(300),
-        distinctUntilChanged(),
-        filter(v => typeof v === 'string' && v.length >= 2),
-        switchMap(v => this.medSvc.search(v).pipe(catchError(() => of([])))),
-        startWith([])
-      );
-
-    this.lineResults.push(search$);
+    this.lineResults.push(this.createLineSearchStream(group));
   }
 
   removeLine(index: number): void {
-    if (this.lines.length <= 1) return;
+    if (this.lines.length <= 1) {
+      return;
+    }
+
     this.lines.removeAt(index);
     this.lineResults.splice(index, 1);
   }
 
-  /**
-   * Called when the user selects a medication from the autocomplete dropdown.
-   * Sets the hidden medicationId control from the selected MedicationResponse object.
-   */
   onMedSelected(index: number, event: MatAutocompleteSelectedEvent): void {
     const med = event.option.value as MedicationResponse;
     const line = this.lines.at(index) as unknown as LineGroup;
     line.controls.medicationId.setValue(med.id);
+    line.controls.medicationSearch.setValue(med.name);
   }
 
-  /**
-   * Called on native input event (user typing manually).
-   * Clears medicationId so the user must re-select from autocomplete.
-   */
   clearMedId(index: number): void {
     const line = this.lines.at(index) as unknown as LineGroup;
     if (line.controls.medicationId.value) {
@@ -506,9 +569,11 @@ export class DoctorPrescriptionsComponent implements OnInit {
     }
   }
 
-  /** Passed to [displayWith] on mat-autocomplete to show medication name in the input. */
   displayMed = (med: MedicationResponse | string | null): string => {
-    if (!med) return '';
+    if (!med) {
+      return '';
+    }
+
     return typeof med === 'string' ? med : med.name;
   };
 
@@ -517,38 +582,116 @@ export class DoctorPrescriptionsComponent implements OnInit {
       this.form.markAllAsTouched();
       return;
     }
+
     this.saving.set(true);
     this.formError.set('');
 
     const raw = this.form.getRawValue();
-
-    this.rxSvc.create({
-      doctorId:       this.auth.currentUser()!.id,
-      patientId:      raw.patientId,
-      doctorNotes:    raw.doctorNotes || undefined,
+    const payload = {
+      doctorId: this.auth.currentUser()!.id,
+      patientId: raw.patientId,
+      doctorNotes: raw.doctorNotes || undefined,
       recipientEmail: raw.recipientEmail || undefined,
-      prescriptionLines: raw.lines.map((l: { medicationId: string; dosage: string; duration: string }) => ({
-        medicationId: l.medicationId,
-        dosage:       l.dosage,
-        duration:     l.duration,
+      prescriptionLines: raw.lines.map((line: { medicationId: string; dosage: string; duration: string }) => ({
+        medicationId: line.medicationId,
+        dosage: line.dosage,
+        duration: line.duration,
       })),
-    }).subscribe({
-      next: (rx) => {
-        this.prescriptions.update(list => [rx, ...list]);
+    };
+
+    const request$ = this.editingPrescriptionId()
+      ? this.rxSvc.update(this.editingPrescriptionId()!, payload)
+      : this.rxSvc.create(payload);
+
+    request$.subscribe({
+      next: (prescription) => {
+        this.prescriptions.update((items) => {
+          const exists = items.some((item) => item.id === prescription.id);
+          if (!exists) {
+            return [prescription, ...items];
+          }
+
+          return items.map((item) => (item.id === prescription.id ? prescription : item));
+        });
+
         this.toggleForm();
         this.saving.set(false);
       },
       error: (err) => {
-        this.formError.set(err.error?.message ?? 'Failed to issue prescription.');
+        this.formError.set(
+          err.error?.message ?? (this.isEditMode() ? 'Failed to update prescription.' : 'Failed to issue prescription.')
+        );
         this.saving.set(false);
       },
     });
   }
 
   delete(id: string): void {
-    if (!confirm('Delete this prescription?')) return;
+    if (!confirm('Delete this prescription?')) {
+      return;
+    }
+
     this.rxSvc.delete(id).subscribe({
-      next: () => this.prescriptions.update(list => list.filter(rx => rx.id !== id)),
+      next: () => this.prescriptions.update((items) => items.filter((prescription) => prescription.id !== id)),
     });
+  }
+
+  private populateForm(prescription: PrescriptionResponse): void {
+    this.lines.clear();
+    this.lineResults = [];
+
+    this.form.patchValue({
+      patientId: prescription.patientId,
+      doctorNotes: prescription.doctorNotes ?? '',
+      recipientEmail: prescription.recipientEmail ?? '',
+    });
+
+    if (prescription.prescriptionLines.length === 0) {
+      this.addLine();
+      return;
+    }
+
+    prescription.prescriptionLines.forEach((line) => {
+      const group = this.createLineGroup(
+        line.medicationName ?? '',
+        line.medicationId,
+        line.dosage,
+        line.duration,
+      );
+      this.lines.push(group);
+      this.lineResults.push(this.createLineSearchStream(group));
+    });
+  }
+
+  private resetFormState(): void {
+    this.form.reset();
+    this.lines.clear();
+    this.lineResults = [];
+    this.editingPrescriptionId.set(null);
+    this.addLine();
+  }
+
+  private createLineGroup(
+    medicationSearch = '',
+    medicationId = '',
+    dosage = '',
+    duration = '',
+  ): LineGroup {
+    return this.fb.nonNullable.group({
+      medicationSearch: [medicationSearch],
+      medicationId: [medicationId, Validators.required],
+      dosage: [dosage, Validators.required],
+      duration: [duration, Validators.required],
+    }) as unknown as LineGroup;
+  }
+
+  private createLineSearchStream(group: LineGroup): Observable<MedicationResponse[]> {
+    return group.controls.medicationSearch.valueChanges.pipe(
+      debounceTime(300),
+      distinctUntilChanged(),
+      filter((value) => typeof value === 'string' && value.length >= 2),
+      switchMap((value) => this.medSvc.search(value).pipe(catchError(() => of([])))),
+      startWith([]),
+    );
   }
 }

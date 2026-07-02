@@ -1,0 +1,109 @@
+<div class="catalog-page">
+  <section class="catalog-hero">
+    <div class="catalog-hero__copy">
+      <span class="catalog-hero__eyebrow">Medication Directory</span>
+      <h1>Find medications faster, with a cleaner clinical view.</h1>
+      <p>
+        Search by name, browse by category, and open a full medical profile with
+        rich description, laboratory information, and visual reference.
+      </p>
+    </div>
+
+    <mat-card class="catalog-search-card">
+      <mat-card-content>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Search medications</mat-label>
+          <mat-icon matPrefix>search</mat-icon>
+          <input
+            matInput
+            [formControl]="searchControl"
+            placeholder="Try: amoxicillin, analgesic, vitamin"
+          >
+        </mat-form-field>
+
+        <div class="catalog-search-card__footer">
+          <span>{{ filteredMedications().length }} result(s)</span>
+          @if (hasActiveFilters()) {
+            <button mat-button type="button" (click)="clearFilters()">Clear filters</button>
+          }
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </section>
+
+  <section class="catalog-body">
+    <div class="catalog-body__toolbar">
+      <div class="catalog-body__heading">
+        <h2>Browse the catalog</h2>
+        <p>Categories update with your current search.</p>
+      </div>
+
+      <div class="catalog-body__actions">
+        <button mat-stroked-button routerLink="/">
+          <mat-icon>arrow_back</mat-icon>
+          Back to home
+        </button>
+      </div>
+    </div>
+
+    <div class="category-row">
+      @for (category of categories(); track category) {
+        <button
+          mat-stroked-button
+          type="button"
+          class="category-chip"
+          [class.category-chip--active]="selectedCategory() === category"
+          (click)="selectCategory(category)"
+        >
+          {{ category }}
+        </button>
+      }
+    </div>
+
+    @if (loading()) {
+      <div class="catalog-state">
+        <mat-spinner diameter="42" />
+      </div>
+    } @else if (filteredMedications().length === 0) {
+      <div class="catalog-state catalog-state--empty">
+        <mat-icon>search_off</mat-icon>
+        <h3>No medications found</h3>
+        <p>Try a broader search or switch back to all categories.</p>
+      </div>
+    } @else {
+      <div class="catalog-grid">
+        @for (medication of filteredMedications(); track medication.id) {
+          <mat-card class="medication-card">
+            <img
+              class="medication-card__image"
+              [src]="getMedicationImage(medication)"
+              [alt]="medication.name"
+            >
+
+            <mat-card-content>
+              <div class="medication-card__meta">
+                <span class="badge badge--blue">{{ medication.category }}</span>
+                @if (medication.laboratory) {
+                  <span class="medication-card__lab">{{ medication.laboratory }}</span>
+                }
+              </div>
+
+              <h3>{{ medication.name }}</h3>
+              <p>{{ getDescriptionExcerpt(medication.description) }}</p>
+            </mat-card-content>
+
+            <mat-card-actions align="end">
+              <button
+                mat-flat-button
+                color="primary"
+                [routerLink]="['/medications', medication.id]"
+              >
+                View details
+              </button>
+            </mat-card-actions>
+          </mat-card>
+        }
+      </div>
+    }
+  </section>
+</div>

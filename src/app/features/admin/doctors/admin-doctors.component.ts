@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy, Component, inject, OnInit, signal,
 } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -18,6 +19,7 @@ import { DoctorResponse } from '../../../core/models';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     ReactiveFormsModule,
+    RouterLink,
     MatButtonModule, MatCardModule, MatFormFieldModule,
     MatIconModule, MatInputModule, MatTableModule, MatTooltipModule,
   ],
@@ -153,6 +155,14 @@ import { DoctorResponse } from '../../../core/models';
           <ng-container matColumnDef="actions">
             <th mat-header-cell *matHeaderCellDef></th>
             <td mat-cell *matCellDef="let d">
+              <button
+                mat-icon-button
+                color="primary"
+                matTooltip="View doctor profile"
+                [routerLink]="['/admin/doctors', d.id]"
+              >
+                <mat-icon>visibility</mat-icon>
+              </button>
               <button mat-icon-button color="warn"
                       matTooltip="Delete doctor"
                       (click)="deleteDoctor(d.id)">
@@ -220,6 +230,10 @@ import { DoctorResponse } from '../../../core/models';
       overflow: hidden;
 
       table { width: 100%; }
+    }
+
+    td.mat-mdc-cell:last-child {
+      white-space: nowrap;
     }
 
     .table-empty {

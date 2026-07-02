@@ -6,6 +6,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', icon: 'dashboard',        route: '/admin/dashboard' },
   { label: 'Doctors',   icon: 'medical_services', route: '/admin/doctors'   },
   { label: 'Patients',  icon: 'people',           route: '/admin/patients'  },
+  { label: 'Medications', icon: 'medication',     route: '/admin/medications' },
 ];
 
 @Component({

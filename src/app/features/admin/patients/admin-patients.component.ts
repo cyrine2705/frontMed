@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -11,7 +12,7 @@ import { PatientResponse } from '../../../core/models';
   selector: 'app-admin-patients',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatButtonModule, MatCardModule, MatIconModule, MatTableModule, MatTooltipModule],
+  imports: [RouterLink, MatButtonModule, MatCardModule, MatIconModule, MatTableModule, MatTooltipModule],
   template: `
     <div class="page">
       <header class="page__header">
@@ -38,7 +39,9 @@ import { PatientResponse } from '../../../core/models';
 
           <ng-container matColumnDef="ssn">
             <th mat-header-cell *matHeaderCellDef>SSN</th>
-            <td mat-cell *matCellDef="let p">{{ p.socialSecurityNumber }}</td>
+            <td mat-cell *matCellDef="let p">
+              {{ p.maskedSocialSecurityNumber || p.socialSecurityNumber || 'N/A' }}
+            </td>
           </ng-container>
 
           <ng-container matColumnDef="status">
@@ -55,14 +58,32 @@ import { PatientResponse } from '../../../core/models';
           <ng-container matColumnDef="actions">
             <th mat-header-cell *matHeaderCellDef></th>
             <td mat-cell *matCellDef="let p">
-              @if (p.isActive) {
-                <button mat-stroked-button color="warn"
-                        matTooltip="Archive patient"
-                        (click)="archive(p.id)">
-                  <mat-icon>archive</mat-icon>
-                  Archive
+              <div class="actions-cell">
+                <button
+                  mat-icon-button
+                  color="primary"
+                  matTooltip="View patient profile"
+                  [routerLink]="['/admin/patients', p.id]"
+                >
+                  <mat-icon>visibility</mat-icon>
                 </button>
-              }
+
+                @if (p.isActive) {
+                  <button mat-stroked-button color="warn"
+                          matTooltip="Archive patient"
+                          (click)="archive(p.id)">
+                    <mat-icon>archive</mat-icon>
+                    Archive
+                  </button>
+                } @else {
+                  <button mat-stroked-button color="primary"
+                          matTooltip="Unarchive patient"
+                          (click)="unarchive(p.id)">
+                    <mat-icon>unarchive</mat-icon>
+                    Unarchive
+                  </button>
+                }
+              </div>
             </td>
           </ng-container>
 
@@ -80,6 +101,13 @@ import { PatientResponse } from '../../../core/models';
     .table-card {
       overflow: hidden;
       table { width: 100%; }
+    }
+
+    .actions-cell {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      white-space: nowrap;
     }
 
     .table-empty {
@@ -118,6 +146,13 @@ export class AdminPatientsComponent implements OnInit {
   archive(id: string): void {
     if (!confirm('Archive this patient?')) return;
     this.userSvc.archivePatient(id).subscribe({
+      next: (updated) =>
+        this.patients.update(list => list.map(p => p.id === id ? updated : p)),
+    });
+  }
+
+  unarchive(id: string): void {
+    this.userSvc.unarchivePatient(id).subscribe({
       next: (updated) =>
         this.patients.update(list => list.map(p => p.id === id ? updated : p)),
     });

@@ -279,16 +279,22 @@ import { DoctorResponse, MedicationResponse } from '../../core/models';
           for seamless prescription management, appointment scheduling,
           and AI-assisted health consultations.
         </p>
-        @if (!auth.isAuthenticated()) {
-          <div class="hero__ctas">
+        <div class="hero__ctas">
+          @if (!auth.isAuthenticated()) {
             <button mat-flat-button color="primary" routerLink="/register">
               Create Patient Account
             </button>
             <button mat-stroked-button routerLink="/login">
               Sign In as Doctor / Admin
             </button>
-          </div>
-        }
+          }
+          <button mat-button routerLink="/doctors">
+            Browse Doctors
+          </button>
+          <button mat-button routerLink="/medications">
+            Browse Medications
+          </button>
+        </div>
       </div>
       <div class="hero__visual">
         <mat-icon class="hero__icon">monitor_heart</mat-icon>
@@ -366,6 +372,11 @@ import { DoctorResponse, MedicationResponse } from '../../core/models';
                       <mat-icon>location_on</mat-icon>{{ doc.clinicAddress }}
                     </span>
                   }
+                  <div>
+                    <button mat-button color="primary" [routerLink]="['/doctors', doc.id]">
+                      View profile
+                    </button>
+                  </div>
                 </div>
               </div>
             }
@@ -404,8 +415,11 @@ import { DoctorResponse, MedicationResponse } from '../../core/models';
                 <span class="med-lab">{{ med.laboratory }}</span>
               }
               @if (med.description) {
-                <p class="med-desc">{{ med.description }}</p>
+                <p class="med-desc">{{ getMedicationExcerpt(med.description) }}</p>
               }
+              <button mat-button color="primary" [routerLink]="['/medications', med.id]">
+                View details
+              </button>
             </div>
           }
         </div>
@@ -458,5 +472,22 @@ export class GuestComponent implements OnInit {
 
   onSearch(value: string): void {
     this.searchQuery.set(value);
+  }
+
+  getMedicationExcerpt(description?: string): string {
+    if (!description) {
+      return '';
+    }
+
+    const plainText = description
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (plainText.length <= 120) {
+      return plainText;
+    }
+
+    return `${plainText.slice(0, 117)}...`;
   }
 }

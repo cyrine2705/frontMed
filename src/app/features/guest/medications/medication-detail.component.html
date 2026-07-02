@@ -1,0 +1,60 @@
+<div class="detail-page">
+  <div class="detail-topbar">
+    <button mat-stroked-button routerLink="/medications">
+      <mat-icon>arrow_back</mat-icon>
+      Back to catalog
+    </button>
+  </div>
+
+  @if (loading()) {
+    <div class="detail-state">
+      <mat-spinner diameter="44" />
+    </div>
+  } @else {
+    @if (medication(); as currentMedication) {
+      <div class="detail-layout">
+        <mat-card class="detail-media-card">
+          <img
+            class="detail-media-card__image"
+            [src]="getMedicationImage(currentMedication)"
+            [alt]="currentMedication.name"
+          >
+        </mat-card>
+
+        <mat-card class="detail-content-card">
+          <mat-card-content>
+            <div class="detail-content-card__meta">
+              <span class="badge badge--blue">{{ currentMedication.category }}</span>
+              @if (currentMedication.laboratory) {
+                <span class="detail-content-card__lab">{{ currentMedication.laboratory }}</span>
+              }
+            </div>
+
+            <h1>{{ currentMedication.name }}</h1>
+
+            <p class="detail-content-card__intro">
+              This medication profile is formatted for quick review by patients and clinicians.
+            </p>
+
+            <mat-divider />
+
+            @if (safeDescription()) {
+              <div class="med-rich-html detail-content-card__description" [innerHTML]="safeDescription()"></div>
+            } @else {
+              <p class="detail-content-card__empty">
+                No detailed description has been published for this medication yet.
+              </p>
+            }
+          </mat-card-content>
+        </mat-card>
+      </div>
+    } @else {
+      <div class="detail-state detail-state--empty">
+        <mat-icon>inventory_2</mat-icon>
+        <h2>Medication not found</h2>
+        <p>The requested medication profile is unavailable right now.</p>
+        <button mat-flat-button color="primary" routerLink="/medications">Browse catalog</button>
+      </div>
+    }
+  }
+</div>

@@ -1,4 +1,3 @@
-// ── Auth ──────────────────────────────────────────────────────────────────────
 export type UserRole = 'ADMIN' | 'DOCTOR' | 'PATIENT';
 
 export interface UserResponse {
@@ -40,18 +39,21 @@ export interface RegisterAdminRequest {
   password: string;
 }
 
-// ── Doctor ────────────────────────────────────────────────────────────────────
 export interface DoctorResponse {
   id: string;
   firstName: string;
   lastName: string;
   email: string;
+  role?: UserRole;
   specialty: string;
   medicalLicenseNumber: string;
   phoneNumber?: string;
   clinicAddress?: string;
   createdAt: string;
   isActive: boolean;
+  totalAppointments?: number;
+  totalPrescriptions?: number;
+  activePatientsCount?: number;
 }
 
 export interface CreateDoctorRequest {
@@ -65,20 +67,22 @@ export interface CreateDoctorRequest {
   password?: string;
 }
 
-// ── Patient ───────────────────────────────────────────────────────────────────
 export interface PatientResponse {
   id: string;
   firstName: string;
   lastName: string;
   email: string;
+  role?: UserRole;
   birthDate: string;
-  socialSecurityNumber: string;
+  socialSecurityNumber?: string;
+  maskedSocialSecurityNumber?: string;
   bloodType: string;
   createdAt: string;
   isActive: boolean;
+  totalAppointments?: number;
+  totalPrescriptions?: number;
 }
 
-// ── Appointment ───────────────────────────────────────────────────────────────
 export type AppointmentStatus = 'SCHEDULED' | 'COMPLETED' | 'CANCELED';
 
 export interface AppointmentResponse {
@@ -120,25 +124,30 @@ export interface AppointmentStatusUpdateRequest {
   status: AppointmentStatus;
 }
 
-// ── Medication ────────────────────────────────────────────────────────────────
 export interface MedicationResponse {
   id: string;
   name: string;
   category: string;
-  description?: string;
   laboratory?: string;
+  description?: string;
+  sourceImageUrl?: string;
   imageUrl?: string;
+}
+
+export interface MedicationAutocompleteResponse {
+  id: string;
+  name: string;
+  category: string;
 }
 
 export interface CreateMedicationRequest {
   name: string;
   category: string;
-  description?: string;
   laboratory?: string;
+  description?: string;
   imageUrl?: string;
 }
 
-// ── Prescription ──────────────────────────────────────────────────────────────
 export interface PrescriptionLineRequest {
   medicationId: string;
   dosage: string;
@@ -173,7 +182,8 @@ export interface CreatePrescriptionRequest {
   prescriptionLines: PrescriptionLineRequest[];
 }
 
-// ── Chat ──────────────────────────────────────────────────────────────────────
+export interface UpdatePrescriptionRequest extends CreatePrescriptionRequest {}
+
 export interface ChatRequest {
   message: string;
   doctorId: string;
@@ -183,7 +193,6 @@ export interface ChatResponse {
   reply: string;
 }
 
-// ── Admin stats (derived on frontend) ────────────────────────────────────────
 export interface AdminStats {
   totalDoctors: number;
   totalPatients: number;

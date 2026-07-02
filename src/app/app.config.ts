@@ -3,6 +3,7 @@ import { provideRouter, withComponentInputBinding } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideNativeDateAdapter } from '@angular/material/core';
+import { provideQuillConfig } from 'ngx-quill/config';
 import { routes } from './app.routes';
 import { jwtInterceptor } from './core/interceptors/jwt.interceptor';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
@@ -15,6 +16,16 @@ export const appConfig: ApplicationConfig = {
     provideHttpClient(withInterceptors([jwtInterceptor, authInterceptor])),
     provideAnimations(),
     provideNativeDateAdapter(),
+    provideQuillConfig({
+      modules: {
+        toolbar: [
+          ['bold', 'italic', 'underline'],
+          [{ list: 'ordered' }, { list: 'bullet' }],
+          [{ header: [2, 3, false] }],
+          ['link', 'clean'],
+        ],
+      },
+    }),
     { provide: API_URL, useValue: environment.apiUrl },
   ],
 };
